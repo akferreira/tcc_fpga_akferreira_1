@@ -1,0 +1,21 @@
+{
+"row_count" : 15,
+"row_resource_info":{
+	"CLB": 60,
+	"BRAM" : 12,
+	"DSP": 24,
+	"IO": 2
+},
+"columns" :  ["CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"DSP"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"DSP",	"IO"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"DSP","CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"DSP",	"IO"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"DSP"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB" 	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"BRAM"	,"CLB"	,"CLB"	,"CLB"	,"CLB"	,"CLB","CLB","CLB"	,"CLB","CLB","CLB"],
+
+"IO_columns": [59,123],
+"static_region": {
+	"first_row":2,
+     	"last_row": 13,
+	"coords": [ [[59,2],[123,3]] , [[59,2],[79,14]] , [[103,2],[123,14]], [[59,13],[123,14]] ]
+
+
+
+}
+
+}
