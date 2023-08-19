@@ -37,7 +37,7 @@ print(utils.generate_random_fpga_coord(15, 182, fpgaBoard))
 count = 0
 allocation_region_test = None
 
-allocation_region_test = fpgaBoard.find_allocation_region((0, 0), 'S')
+allocation_region_test = fpgaBoard.find_allocation_region((0, 2), 'S')
 fpgaBoard.allocate_region(allocation_region_test[0], allocation_region_test[1])
 
 for attempt in range(1):

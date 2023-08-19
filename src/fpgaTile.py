@@ -25,7 +25,7 @@ class FpgaTile():
     self.partition = 1 if isStatic else self.partition
 
   def isAvailableForAllocation(self):
-    return (self.partition is None) or (self.partition == 0)
+    return (self.partition is None)
 
   def set_partition(self, partition):
     if (partition > 0):

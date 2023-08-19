@@ -66,6 +66,21 @@ class FpgaBoard():
 
     return True
 
+  def isCoordsEdgeStatic(self,coords):
+    if(self.get_tile(coords).static == False):
+      return False
+
+    coord_column,coord_row, = coords
+    adjacent_coords = [(coord_column+1,coord_row),(coord_column-1,coord_row),(coord_column,coord_row+1),(coord_column,coord_row-1)] #
+    for coord_X,coord_Y in adjacent_coords:
+      try:
+        if(self.matrix[coord_Y][coord_X].static == False):
+            return True
+      except IndexError:
+        continue
+
+    return False
+
   def calculate_region_resources(self,start_coords,end_coords): #A função só deve retornar um valor válido se a região dada não pega de duas ou mais regiões
     '''
     Calcula a quantidade de recursos em uma dada região retangular.
@@ -94,10 +109,13 @@ class FpgaBoard():
 
     for row in range(start_row,end_row+1):
       for column in range(start_column,end_column+1):
-        #current_partition != self.matrix[row][column].partition and self.isCoordsInnerStatic((column,row))
         if(self.matrix[row][column].isAvailableForAllocation() == False and self.isCoordsInnerStatic((column,row)) ):
-          print("Mais de duas partições nessa região\n")
           return None
+
+        if(end_column >= 130 and column >= 130):
+          print(f'{column}.{row}')
+          print(f'Available for allocation = {self.matrix[row][column].isAvailableForAllocation()}')
+          print(f'Inner = {self.isCoordsInnerStatic((column,row))}')
         resource = self.matrix[row][column].resource
         resourceCount[resource] += self.rowResourceInfo[resource]
 
@@ -152,6 +170,13 @@ class FpgaBoard():
     return head
 
 
+
+  def get_all_edge_static_coords(self,coords,direction):
+    scan_coords_temp = self.create_matrix_loop(coords,direction)
+    scan_coords = [coord for coord in scan_coords_temp if self.isCoordsEdgeStatic(coord) == True]
+    print(f'{scan_coords=}')
+    return scan_coords
+
   def find_nearest_static_tile_coords(self,coords,direction = RIGHT):
     '''
     Busca o bloco da região estática mais próximo da coordenada dada. Recebe também como parâmetro em que direção essa busca será feita
@@ -163,53 +188,43 @@ class FpgaBoard():
 
     scan_coords_temp = self.create_matrix_loop(coords,direction)
     scan_coords = [coord for coord in scan_coords_temp if self.isCoordsInnerStatic(coord) == False]
-    print(f"{len(scan_coords_temp)} not {len(scan_coords)}")
 
-    print(f"scan coords {len(scan_coords)}")
     for current_coord in scan_coords:
         if(self.matrix[current_coord[1]][current_coord[0]].static == True and current_coord != coords):
           return current_coord
 
     return
 
-  def find_allocation_region(self,start_coord,size,direction = RIGHT):
+  def find_allocation_region(self, start_coord, size, direction=RIGHT):
     try:
-      current_static_coord = list(self.find_nearest_static_tile_coords(start_coord,direction))
+      current_static_coord = list(self.find_nearest_static_tile_coords(start_coord, direction))
     except TypeError:
       print(f"Can't allocate for {start_coord}")
       return
 
-    if(self.get_tile(start_coord).isAvailableForAllocation() == False):
+    if (self.get_tile(start_coord).isAvailableForAllocation() == False):
       print(f"Can't allocate for {start_coord}")
       return
 
     edgeOfBoard = False
     size_info = self.config['partition_size'][size]
-    print(size_info)
+    print("start")
 
-    while edgeOfBoard == False:
-      try:
-        if(current_static_coord is None):
-          print(f"Can't allocate for {start_coord}")
-          return
+    for current_static_coord in self.get_all_edge_static_coords(start_coord, direction):
+      if (current_static_coord is None):
+        print(f"Can't allocate for {start_coord}")
+        return
 
-        current_static_coord[direction]+=1
-        current_resource_count = self.calculate_region_resources(start_coord,current_static_coord)
+      current_resource_count = self.calculate_region_resources(start_coord, current_static_coord)
+      if (current_resource_count is not None):
+        if (current_resource_count['CLB'] >= size_info['CLB'] and current_resource_count['DSP'] >= size_info['DSP'] and
+                current_resource_count['BRAM'] >= size_info['BRAM']):
+          print(
+            f"Succesfully allocated a region with {current_resource_count} at {start_coord} to {current_static_coord}")
+          return [start_coord, current_static_coord]
 
-        if(current_resource_count is None):
-          print(current_static_coord)
-          return
-
-        if(current_resource_count['CLB'] >= size_info['CLB'] and current_resource_count['DSP'] >= size_info['DSP'] and current_resource_count['BRAM'] >= size_info['BRAM']):
-          print(f"Succesfully allocated a region with {current_resource_count} at {start_coord} to {current_static_coord}")
-          return [start_coord,current_static_coord]
-
-      except IndexError:
-        edgeOfBoard = True
-
-
-    print(current_resource_count)
-    return None
+    print("end")
+    return [None, None]
 
   def allocate_region(self,start_coords,end_coords):
     start_column,start_row = start_coords
