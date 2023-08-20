@@ -16,9 +16,9 @@ coord_Y = 1
 matrix_line = 0
 matrix_column = 1
 
-config_dir = 'config'
-fpga_config = utils.load_json_config_file( os.path.join(config_dir,fpga_config_filename) )
-fpga_config.update(utils.load_json_config_file( os.path.join(config_dir,partition_config_filename)))
+parent_dir = Path(__file__).parent.parent
+fpga_config = utils.load_json_config_file( os.path.join(parent_dir,fpga_config_filename) )
+fpga_config.update(utils.load_json_config_file( os.path.join(parent_dir,partition_config_filename)))
 fpgaBoard = FpgaBoard(fpga_config)
 
 print(fpga_config["partition_size"]['S'])

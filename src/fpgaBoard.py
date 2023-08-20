@@ -239,7 +239,7 @@ class FpgaBoard():
 
     return
 
-  def find_allocation_region(self, start_coord, size, direction=RIGHT):
+  def find_allocation_region(self, start_coord, size, direction=RIGHT,logger = None):
 
     if (self.get_tile(start_coord).isAvailableForAllocation() == False):
       print(f"Can't allocate for {start_coord}")
