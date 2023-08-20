@@ -22,17 +22,25 @@ class FpgaTile():
   @static.setter
   def static(self, isStatic):
     self._static = isStatic
-    self.partition = 1 if isStatic else self.partition
+    self.partition = 0 if isStatic else self.partition
 
   def isAvailableForAllocation(self):
     return (self.partition is None)
 
-  def set_partition(self, partition):
-    if (partition > 0):
+  @property
+  def partition(self):
+    return self._partition
+
+  @partition.setter
+  def partition(self, partition):
+    if(partition is None):
+      self._partition = None
+
+    elif (partition > 0):
       if (self.static == True):
-        print("Bloco pertence a partição estática. Alocação inválida\n")
+        print(f"Bloco pertence a partição estática. Alocação {partition=} inválida\n")
         return
-      self.partition = partition
+      self._partition = partition
     else:
-      print(f"Partição 0 fornecida. Para setar um bloco como pertencente a partição estática use o atributo .static")
+      self._partition = partition
     return

@@ -55,7 +55,8 @@ class FpgaBoard():
       return False
 
     coord_column,coord_row, = coords
-    adjacent_coords = [(coord_column+1,coord_row),(coord_column-1,coord_row),(coord_column,coord_row+1),(coord_column,coord_row-1)] #
+    adjacent_coords = [(coord_column+1,coord_row),(coord_column-1,coord_row),(coord_column,coord_row+1),(coord_column,coord_row-1)]
+
     for coord_X,coord_Y in adjacent_coords:
       try:
         if(self.matrix[coord_Y][coord_X].static == False):
@@ -63,15 +64,15 @@ class FpgaBoard():
       except IndexError:
         continue
 
-
     return True
+
 
   def isCoordsEdgeStatic(self,coords):
     if(self.get_tile(coords).static == False):
       return False
 
     coord_column,coord_row, = coords
-    adjacent_coords = [(coord_column+1,coord_row),(coord_column-1,coord_row),(coord_column,coord_row+1),(coord_column,coord_row-1)] #
+    adjacent_coords = [(coord_column+1,coord_row),(coord_column-1,coord_row),(coord_column,coord_row+1),(coord_column,coord_row-1)]
     for coord_X,coord_Y in adjacent_coords:
       try:
         if(self.matrix[coord_Y][coord_X].static == False):
@@ -79,6 +80,44 @@ class FpgaBoard():
       except IndexError:
         continue
 
+    return False
+
+  def isCoordsEdgeBoard(self,coords):
+    coord_column,coord_row, = coords
+    
+    if(coord_column == 0 or coord_row == 0):
+      return True
+
+    adjacent_coords = [(coord_column + 1, coord_row), (coord_column - 1, coord_row), (coord_column, coord_row + 1),(coord_column, coord_row - 1)]
+
+    for coord_X,coord_Y in adjacent_coords:
+      try:
+        self.matrix[coord_Y][coord_X]
+      except IndexError:
+        return True
+
+    return False
+
+  def is_region_border_static(self,start_coords, end_coords):
+    start_column, start_row = start_coords
+    end_column, end_row = end_coords
+
+    if(start_column > end_column):
+      start_column,end_column = end_column,start_column
+
+    if(start_row > end_row):
+      start_row,end_row = end_row,start_row
+
+    for row in range(start_row, end_row + 1):
+      for column in range(start_column, end_column + 1):
+        adjacent_coords = [(column + 1, row), (column - 1, row), (column, row + 1), (column, row - 1)]
+        for adjacent_coord in adjacent_coords:
+          try:
+            if(self.isCoordsEdgeStatic(adjacent_coord) == True):
+              return True
+          except IndexError:
+            continue
+            
     return False
 
   def calculate_region_resources(self,start_coords,end_coords): #A função só deve retornar um valor válido se a região dada não pega de duas ou mais regiões
@@ -105,17 +144,18 @@ class FpgaBoard():
       start_row,end_row = end_row,start_row
 
     resourceCount = defaultdict(int)
-    current_partition = self.get_tile(start_coords).partition
+    currentPartition = self.get_tile(start_coords).partition
 
     for row in range(start_row,end_row+1):
       for column in range(start_column,end_column+1):
-        if(self.matrix[row][column].isAvailableForAllocation() == False and self.isCoordsInnerStatic((column,row)) ):
-          return None
 
-        if(end_column >= 130 and column >= 130):
-          print(f'{column}.{row}')
-          print(f'Available for allocation = {self.matrix[row][column].isAvailableForAllocation()}')
-          print(f'Inner = {self.isCoordsInnerStatic((column,row))}')
+        if(self.matrix[row][column].partition != currentPartition):
+          return
+          if (self.isCoordsEdgeStatic((column, row)) == True):
+            continue
+          else:
+            return
+
         resource = self.matrix[row][column].resource
         resourceCount[resource] += self.rowResourceInfo[resource]
 
@@ -133,12 +173,11 @@ class FpgaBoard():
 
     for static_coords in static_subcoords:
       upper_left,bottom_right = static_coords
-
+      print(static_coords)
       for column in range(upper_left[0],bottom_right[0]+1):
         for line in range(upper_left[1],bottom_right[1]):
           self.matrix[line][column].static = True
 
-    print(self.matrix[2][65].static)
     return
 
   def create_matrix_loop(self,start_coords,direction = RIGHT):
@@ -174,8 +213,13 @@ class FpgaBoard():
   def get_all_edge_static_coords(self,coords,direction):
     scan_coords_temp = self.create_matrix_loop(coords,direction)
     scan_coords = [coord for coord in scan_coords_temp if self.isCoordsEdgeStatic(coord) == True]
-    print(f'{scan_coords=}')
     return scan_coords
+
+  def get_all_edge_board_coords(self,coords,direction):
+    scan_coords_temp = self.create_matrix_loop(coords,direction)
+    scan_coords = [coord for coord in scan_coords_temp if self.isCoordsEdgeBoard(coord) == True]
+    return scan_coords
+
 
   def find_nearest_static_tile_coords(self,coords,direction = RIGHT):
     '''
@@ -196,44 +240,74 @@ class FpgaBoard():
     return
 
   def find_allocation_region(self, start_coord, size, direction=RIGHT):
-    try:
-      current_static_coord = list(self.find_nearest_static_tile_coords(start_coord, direction))
-    except TypeError:
-      print(f"Can't allocate for {start_coord}")
-      return
 
     if (self.get_tile(start_coord).isAvailableForAllocation() == False):
       print(f"Can't allocate for {start_coord}")
       return
-
-    edgeOfBoard = False
+    
     size_info = self.config['partition_size'][size]
     print("start")
+    scan_coords = self.get_all_edge_static_coords(start_coord, direction) + self.get_all_edge_board_coords(start_coord,direction)
+    scan_coords = self.create_matrix_loop(start_coord,direction)
+    scan_coords = [coords for coords in scan_coords if self.get_tile(coords).static == False]
 
-    for current_static_coord in self.get_all_edge_static_coords(start_coord, direction):
+    for current_static_coord in scan_coords:
       if (current_static_coord is None):
         print(f"Can't allocate for {start_coord}")
         return
 
+      if(current_static_coord == (159,13)):
+        print("aa")
+
       current_resource_count = self.calculate_region_resources(start_coord, current_static_coord)
+
+      if (current_static_coord == (159, 13)):
+        print(current_resource_count)
+
       if (current_resource_count is not None):
-        if (current_resource_count['CLB'] >= size_info['CLB'] and current_resource_count['DSP'] >= size_info['DSP'] and
-                current_resource_count['BRAM'] >= size_info['BRAM']):
-          print(
-            f"Succesfully allocated a region with {current_resource_count} at {start_coord} to {current_static_coord}")
+        if (current_static_coord == (159, 13)):
+          print(f'{current_resource_count} ||| {current_static_coord} = {utils.is_resource_count_sufficient(current_resource_count,size_info)}. static border = {self.is_region_border_static(start_coord,current_static_coord)}')
+        if (utils.is_resource_count_sufficient(current_resource_count,size_info) and self.is_region_border_static(start_coord,current_static_coord)):
+          print(f"Succesfully found an available region with {current_resource_count} at {start_coord} to {current_static_coord}")
           return [start_coord, current_static_coord]
 
     print("end")
-    return [None, None]
+    return None
+  
+  
+  
 
   def allocate_region(self,start_coords,end_coords):
     start_column,start_row = start_coords
     end_column,end_row = end_coords
+
+    if(start_column > end_column):
+      start_column,end_column = end_column,start_column
+      print("ha")
+      #start_column+=1
+      #end_column+=1
+
+
+    if(start_row > end_row):
+      start_row,end_row = end_row,start_row
+      print("hey")
+      #start_row+=1
+      #end_row+=1
+
+    print(f"allocating from {start_column},{start_row} to {end_column},{end_row}")
+
+    for column in range(start_column,end_column+1):
+      for row in range(start_row,end_row+1):
+        if(self.matrix[row][column].isAvailableForAllocation() == False):
+          print(f'Unavailable tile found in region at {column}.{row}. Aborting partition {self.partitionCount} allocation')
+          return
+    
+    for column in range(start_column,end_column+1):
+      for row in range(start_row,end_row+1):
+        if(self.matrix[row][column].static == False):
+          self.matrix[row][column].partition = self.partitionCount
+
+
     self.partitionCount+=1
-
-    for column in range(start_column,end_column):
-      for row in range(start_row,end_row):
-        self.matrix[row][column].partition = self.partitionCount
-
 
 

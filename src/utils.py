@@ -25,14 +25,24 @@ def circular_range(start, stop):
     return [i for i in range(start, stop)] + [i for i in range(start)]
 
 
-def load_json_config(url):
+def load_json_config_url(url):
     response = urlopen(url)
     config = json.loads(response.read())
     return config
 
+def load_json_config_file(path):
+    print(path)
+    with open(path) as json_file:
+        config = json.load(json_file)
+        return config
 
-def is_resource_count_equal(resources1, resources2):
-    return False
+
+def is_resource_count_sufficient(resources1, resources2):
+    return (resources1['CLB'] >= resources2['CLB'] and resources1['DSP'] >= resources2['DSP'] and resources1['BRAM'] >= resources2['BRAM'])
+
+
+          
+
 
 
 def print_board(fpgaBoard):
