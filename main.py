@@ -22,7 +22,7 @@ fpga_config.update(utils.load_json_config_file( os.path.join(parent_dir,partitio
 fpgaBoard = FpgaBoard(fpga_config)
 
 print(fpga_config["partition_size"]['S'])
-print(fpgaBoard.calculate_region_resources( (0,13),(86,14)))
+print(fpgaBoard.fpgaMatrix.calculate_region_resources( (0,13),(86,14)))
 print("--")
 
 # print(fpga_config["partition_size"])
@@ -35,7 +35,7 @@ print(f"{random_coords}")
 count = 0
 
 for i in range(30):
-  count = i
+  print(f"{i=}")
   allocation_region_test = fpgaBoard.find_allocation_region(random_coords, 'S')
   if(allocation_region_test is not None):
     break
@@ -44,16 +44,13 @@ print(f"{count=}")
 if (allocation_region_test is not None):
   fpgaBoard.allocate_region(allocation_region_test[0], allocation_region_test[1])
 
-allocation_region_test = fpgaBoard.find_allocation_region((170,4), 'S')
-if (allocation_region_test is not None):
-  fpgaBoard.allocate_region(allocation_region_test[0], allocation_region_test[1])
 
-print(fpgaBoard.matrix[5][90].row)
+print(fpgaBoard.getTile((50,9)).row)
 utils.print_board(fpgaBoard)
 exit(0)
 
 fpgaBoard.allocate_region((59,14),(152, 13) )
-print(fpgaBoard.calculate_region_resources((59,14),(152, 13) ))
+print(fpgaBoard.fpgaMatrix.calculate_region_resources((59,14),(152, 13) ))
 utils.print_board(fpgaBoard)
 
 
