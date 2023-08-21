@@ -39,9 +39,8 @@ for i in range(30):
   allocation_region_test = fpgaBoard.find_allocation_region(random_coords, 'S')
   if(allocation_region_test is not None):
     break
-  #print(allocation_region_test )
+
 print(f"{count=}")
-print(allocation_region_test )
 if (allocation_region_test is not None):
   fpgaBoard.allocate_region(allocation_region_test[0], allocation_region_test[1])
 
@@ -49,6 +48,7 @@ allocation_region_test = fpgaBoard.find_allocation_region((170,4), 'S')
 if (allocation_region_test is not None):
   fpgaBoard.allocate_region(allocation_region_test[0], allocation_region_test[1])
 
+print(fpgaBoard.matrix[5][90].row)
 utils.print_board(fpgaBoard)
 exit(0)
 

@@ -10,10 +10,12 @@ class FpgaTile():
   PartitionCount = 0
   ResourceCount = {'BRAM': 0, 'CLB': 0, 'DSP': 0, 'IO': 0}
 
-  def __init__(self, resource, rows):
+  def __init__(self, resource, column,row):
     self.resource = resource
     self.partition = None
     self.static = False
+    self.column = column
+    self.row = row
 
   @property
   def static(self):

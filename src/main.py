@@ -6,6 +6,7 @@ import random
 from src import utils
 from src.fpgaBoard import FpgaBoard
 import logging
+logger = logging.getLogger('fpga')
 
 fpga_config_url = 'https://raw.githubusercontent.com/akferreira/tcc_fpga_akferreira_1/main/fpga.json'
 partition_config_url = 'https://raw.githubusercontent.com/akferreira/tcc_fpga_akferreira_1/main/partition.json'

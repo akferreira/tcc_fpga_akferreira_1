@@ -6,6 +6,7 @@ import random
 
 from . import utils
 from .fpgaTile import FpgaTile
+from .fpgaMatrix import fpgaMatrix
 
 RIGHT = 0
 UP = 1
@@ -38,7 +39,7 @@ class FpgaBoard():
 
   def load_config(self,fpga_config):
     self.rowResourceInfo = fpga_config['row_resource_info']
-    self.matrix = [[FpgaTile(resourceType,fpga_config['row_count']) for resourceType in fpga_config['columns']] for row in range(fpga_config['row_count'])] #repete a lista de colunas "linhas" vezes, criando uma
+    self.matrix = [[FpgaTile(resourceType,column,row) for column,resourceType in enumerate(fpga_config['columns'])] for row in range(fpga_config['row_count'])] #repete a lista de colunas "linhas" vezes, criando uma
     self.set_static_region(fpga_config['static_region']['coords'])                                                                               #matriz de dimensõeslinha x coluna
     self.partitionCount+=1
     return
@@ -246,7 +247,6 @@ class FpgaBoard():
       return
     
     size_info = self.config['partition_size'][size]
-    print("start")
     scan_coords = self.get_all_edge_static_coords(start_coord, direction) + self.get_all_edge_board_coords(start_coord,direction)
     scan_coords = self.create_matrix_loop(start_coord,direction)
     scan_coords = [coords for coords in scan_coords if self.get_tile(coords).static == False]
@@ -256,22 +256,15 @@ class FpgaBoard():
         print(f"Can't allocate for {start_coord}")
         return
 
-      if(current_static_coord == (159,13)):
-        print("aa")
-
       current_resource_count = self.calculate_region_resources(start_coord, current_static_coord)
 
-      if (current_static_coord == (159, 13)):
-        print(current_resource_count)
-
       if (current_resource_count is not None):
-        if (current_static_coord == (159, 13)):
-          print(f'{current_resource_count} ||| {current_static_coord} = {utils.is_resource_count_sufficient(current_resource_count,size_info)}. static border = {self.is_region_border_static(start_coord,current_static_coord)}')
+          #print(f'{current_resource_count} ||| {current_static_coord} = {utils.is_resource_count_sufficient(current_resource_count,size_info)}. static border = {self.is_region_border_static(start_coord,current_static_coord)}')
         if (utils.is_resource_count_sufficient(current_resource_count,size_info) and self.is_region_border_static(start_coord,current_static_coord)):
           print(f"Succesfully found an available region with {current_resource_count} at {start_coord} to {current_static_coord}")
           return [start_coord, current_static_coord]
 
-    print("end")
+
     return None
   
   
@@ -283,14 +276,12 @@ class FpgaBoard():
 
     if(start_column > end_column):
       start_column,end_column = end_column,start_column
-      print("ha")
       #start_column+=1
       #end_column+=1
 
 
     if(start_row > end_row):
       start_row,end_row = end_row,start_row
-      print("hey")
       #start_row+=1
       #end_row+=1
 
