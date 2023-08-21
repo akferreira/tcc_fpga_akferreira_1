@@ -20,7 +20,7 @@ class FpgaBoard():
     self.config = fpga_config
     self.load_config(fpga_config)
 
-  def get_tile(self,coordinate):
+  def getTile(self,coordinate):
     return self.matrix[coordinate[1]][coordinate[0]]
 
   @property
@@ -52,15 +52,15 @@ class FpgaBoard():
     self.resourceCount[resource]+= self.rowResourceInfo[resource]
 
   def isCoordsInnerStatic(self,coords):
-    if(self.get_tile(coords).static == False):
+    if(self.getTile(coords).static == False):
       return False
 
     coord_column,coord_row, = coords
     adjacent_coords = [(coord_column+1,coord_row),(coord_column-1,coord_row),(coord_column,coord_row+1),(coord_column,coord_row-1)]
 
-    for coord_X,coord_Y in adjacent_coords:
+    for column,row in adjacent_coords:
       try:
-        if(self.matrix[coord_Y][coord_X].static == False):
+        if(self.getTile((column,row)).static == False):
             return False
       except IndexError:
         continue
@@ -69,14 +69,14 @@ class FpgaBoard():
 
 
   def isCoordsEdgeStatic(self,coords):
-    if(self.get_tile(coords).static == False):
+    if(self.getTile(coords).static == False):
       return False
 
     coord_column,coord_row, = coords
     adjacent_coords = [(coord_column+1,coord_row),(coord_column-1,coord_row),(coord_column,coord_row+1),(coord_column,coord_row-1)]
-    for coord_X,coord_Y in adjacent_coords:
+    for column,row in adjacent_coords:
       try:
-        if(self.matrix[coord_Y][coord_X].static == False):
+        if(self.getTile((column,row)).static == False):
             return True
       except IndexError:
         continue
@@ -91,9 +91,9 @@ class FpgaBoard():
 
     adjacent_coords = [(coord_column + 1, coord_row), (coord_column - 1, coord_row), (coord_column, coord_row + 1),(coord_column, coord_row - 1)]
 
-    for coord_X,coord_Y in adjacent_coords:
+    for column,row in adjacent_coords:
       try:
-        self.matrix[coord_Y][coord_X]
+        self.getTile((column,row))
       except IndexError:
         return True
 
@@ -131,8 +131,8 @@ class FpgaBoard():
     end_column,end_row = end_coords
 
     try:
-      self.get_tile(start_coords)
-      self.get_tile(end_coords)
+      self.getTile(start_coords)
+      self.getTile(end_coords)
 
     except IndexError as Error:
       print(f"Coordinates out of bounds!")
@@ -145,19 +145,19 @@ class FpgaBoard():
       start_row,end_row = end_row,start_row
 
     resourceCount = defaultdict(int)
-    currentPartition = self.get_tile(start_coords).partition
+    currentPartition = self.getTile(start_coords).partition
 
     for row in range(start_row,end_row+1):
       for column in range(start_column,end_column+1):
 
-        if(self.matrix[row][column].partition != currentPartition):
+        if(self.getTile((column,row)).partition != currentPartition):
           return
           if (self.isCoordsEdgeStatic((column, row)) == True):
             continue
           else:
             return
 
-        resource = self.matrix[row][column].resource
+        resource = self.getTile((column,row)).resource
         resourceCount[resource] += self.rowResourceInfo[resource]
 
     return resourceCount
@@ -177,7 +177,7 @@ class FpgaBoard():
       print(static_coords)
       for column in range(upper_left[0],bottom_right[0]+1):
         for line in range(upper_left[1],bottom_right[1]):
-          self.matrix[line][column].static = True
+          self.getTile((column,line)).static = True
 
     return
 
@@ -222,34 +222,16 @@ class FpgaBoard():
     return scan_coords
 
 
-  def find_nearest_static_tile_coords(self,coords,direction = RIGHT):
-    '''
-    Busca o bloco da região estática mais próximo da coordenada dada. Recebe também como parâmetro em que direção essa busca será feita
-    RIGHT = 0, UP = 1
-    '''
-    if(self.get_tile(coords).static ==  True):
-      print(f"{coords} belong to a static region")
-      return
-
-    scan_coords_temp = self.create_matrix_loop(coords,direction)
-    scan_coords = [coord for coord in scan_coords_temp if self.isCoordsInnerStatic(coord) == False]
-
-    for current_coord in scan_coords:
-        if(self.matrix[current_coord[1]][current_coord[0]].static == True and current_coord != coords):
-          return current_coord
-
-    return
-
   def find_allocation_region(self, start_coord, size, direction=RIGHT,logger = None):
 
-    if (self.get_tile(start_coord).isAvailableForAllocation() == False):
+    if (self.getTile(start_coord).isAvailableForAllocation() == False):
       print(f"Can't allocate for {start_coord}")
       return
     
     size_info = self.config['partition_size'][size]
     scan_coords = self.get_all_edge_static_coords(start_coord, direction) + self.get_all_edge_board_coords(start_coord,direction)
     scan_coords = self.create_matrix_loop(start_coord,direction)
-    scan_coords = [coords for coords in scan_coords if self.get_tile(coords).static == False]
+    scan_coords = [coords for coords in scan_coords if self.getTile(coords).static == False]
 
     for current_static_coord in scan_coords:
       if (current_static_coord is None):
@@ -276,27 +258,22 @@ class FpgaBoard():
 
     if(start_column > end_column):
       start_column,end_column = end_column,start_column
-      #start_column+=1
-      #end_column+=1
-
-
+        
     if(start_row > end_row):
       start_row,end_row = end_row,start_row
-      #start_row+=1
-      #end_row+=1
 
     print(f"allocating from {start_column},{start_row} to {end_column},{end_row}")
 
     for column in range(start_column,end_column+1):
       for row in range(start_row,end_row+1):
-        if(self.matrix[row][column].isAvailableForAllocation() == False):
+        if(self.getTile((column,row)).isAvailableForAllocation() == False):
           print(f'Unavailable tile found in region at {column}.{row}. Aborting partition {self.partitionCount} allocation')
           return
     
     for column in range(start_column,end_column+1):
       for row in range(start_row,end_row+1):
-        if(self.matrix[row][column].static == False):
-          self.matrix[row][column].partition = self.partitionCount
+        if(self.getTile((column,row)).static == False):
+          self.getTile((column,row)).partition = self.partitionCount
 
 
     self.partitionCount+=1

@@ -40,7 +40,8 @@ def load_json_config_file(path):
 def is_resource_count_sufficient(resources1, resources2):
     return (resources1['CLB'] >= resources2['CLB'] and resources1['DSP'] >= resources2['DSP'] and resources1['BRAM'] >= resources2['BRAM'])
 
-
+def sortCoords(coord1,coord2):
+    return
           
 
 
