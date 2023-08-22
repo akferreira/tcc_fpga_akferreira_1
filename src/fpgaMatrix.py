@@ -10,16 +10,16 @@ UP = 1
 
 
 class FpgaMatrix:
-    def __init__(self,fpgaConfig):
-        self.matrix = [[FpgaTile(resourceType,column,row) for column,resourceType in enumerate(fpgaConfig['columns'])] for row in range(fpgaConfig['row_count'])]
+    def __init__(self,fpgaConfig,logger = None):
+        self.logger = None
+        self.matrix = [[FpgaTile(resourceType,column,row,logger) for column,resourceType in enumerate(fpgaConfig['columns'])] for row in range(fpgaConfig['row_count'])]
         self.rowResourceInfo = fpgaConfig['row_resource_info']
         self.height = len(self.matrix)
         self.width = len(self.matrix[0])
+        
 
     def getTile(self, coordinate):
         return self.matrix[coordinate[1]][coordinate[0]]
-
-
 
     def create_matrix_loop(self, start_coords, direction=RIGHT,excludeStatic = False):
         '''
@@ -139,7 +139,7 @@ class FpgaMatrix:
             self.getTile(end_coords)
 
         except IndexError as Error:
-            print(f"Coordinates out of bounds!")
+            logger.error(f"Cannot calculate resources for region {start_coords}::{end_coords}. Out of bounds")
             return
 
         if (start_column > end_column):
@@ -148,7 +148,7 @@ class FpgaMatrix:
         if (start_row > end_row):
             start_row, end_row = end_row, start_row
 
-        resourceCount = defaultdict(int)
+        resourceCount = {'BRAM': 0,'CLB': 0, 'DSP': 0, 'IO': 0}
         currentPartition = self.getTile(start_coords).partition
 
         for row in range(start_row, end_row + 1):
@@ -175,3 +175,18 @@ class FpgaMatrix:
         scan_coords_temp = self.create_matrix_loop(coords,direction)
         scan_coords = [coord for coord in scan_coords_temp if self.isCoordsEdgeBoard(coord) == True]
         return scan_coords
+
+    def get_partition_coords(self,partition):
+        return
+
+    def get_free_resource_count(self):
+        return
+
+    def get_single_partition_resource_report(self):
+        return
+
+    def get_complete_partition_resource_report(self):
+        return
+
+    
+

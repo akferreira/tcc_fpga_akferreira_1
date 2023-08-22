@@ -10,12 +10,13 @@ class FpgaTile():
   PartitionCount = 0
   ResourceCount = {'BRAM': 0, 'CLB': 0, 'DSP': 0, 'IO': 0}
 
-  def __init__(self, resource, column,row):
+  def __init__(self, resource, column,row,logger = None):
     self.resource = resource
     self.partition = None
     self.static = False
     self.column = column
     self.row = row
+    self.logger = logger
 
   @property
   def static(self):
@@ -40,7 +41,7 @@ class FpgaTile():
 
     elif (partition > 0):
       if (self.static == True):
-        print(f"Bloco pertence a partição estática. Alocação {partition=} inválida\n")
+        self.logger.error(f"Bloco pertence a partição estática. Alocação {partition=} inválida\n")
         return
       self._partition = partition
     else:
