@@ -191,15 +191,15 @@ class FpgaMatrix:
 
     def get_complete_partition_resource_report(self):
         tiles = [tile for tile in self.getAllTiles() if tile.partition is not None]
-        partitions = []
+        partitions = {}
 
         for tile in tiles:
             try:
                 partitions[tile.partition].append(tile)
-            except IndexError:
-                partitions.append([tile])
+            except KeyError:
+                partitions[tile.partition] = [tile]
 
-        for partition in partitions:
+        for partition in partitions.values():
             upperleft_tile = partition[0]
             bottomright_tile = partition[-1]
             upperleft_coords = (upperleft_tile.column,upperleft_tile.row)
@@ -209,6 +209,5 @@ class FpgaMatrix:
 
 
         return
-
     
 
