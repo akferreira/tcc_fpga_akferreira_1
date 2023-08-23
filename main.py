@@ -42,24 +42,30 @@ def config_logger(args):
 args = config_argparser()
 logger = config_logger(args)
 
-parent_dir = Path(__file__).parent.parent
-fpga_config = utils.load_json_config_file( os.path.join(parent_dir,fpga_config_filename) )
-fpga_config.update(utils.load_json_config_file( os.path.join(parent_dir,partition_config_filename)))
+config_dir = os.path.join(Path(__file__).parent,'config')
+print(config_dir)
+fpga_config = utils.load_json_config_file( os.path.join(config_dir,fpga_config_filename) )
+fpga_config.update(utils.load_json_config_file( os.path.join(config_dir,partition_config_filename)))
 fpgaBoard = FpgaBoard(fpga_config,logger)
 
-random_coords =  utils.generate_random_fpga_coord(15, 182, fpgaBoard)
-allocation_coords = fpgaBoard.fpgaMatrix.create_matrix_loop(random_coords,excludeStatic = True)
-logger.info(len(allocation_coords))
-for i,coords in enumerate(allocation_coords):
-  logger.debug(f'Attempt number {i} at {coords}')
-  allocation_region_test = fpgaBoard.find_allocation_region(coords, 'S')
-  if(allocation_region_test is not None):
-    break
 
 
-if (allocation_region_test is not None):
-  fpgaBoard.allocate_region(allocation_region_test[0], allocation_region_test[1])
 
+full_loop = False
+
+while (full_loop == False):
+  random_coords =  utils.generate_random_fpga_coord(15, 182, fpgaBoard)
+  allocation_coords = fpgaBoard.fpgaMatrix.create_matrix_loop(random_coords,excludeStatic = True)
+  logger.info(len(allocation_coords))
+  for i,coords in enumerate(allocation_coords):
+    logger.debug(f'Attempt number {i} at {coords}')
+    allocation_region_test = fpgaBoard.find_allocation_region(coords, 'S')
+    
+    if(allocation_region_test is not None):
+      fpgaBoard.allocate_region(allocation_region_test[0], allocation_region_test[1])
+      break
+      
+  full_loop = (i+1==len(allocation_coords))
 
 utils.print_board(fpgaBoard)
 fpgaBoard.fpgaMatrix.get_complete_partition_resource_report()
