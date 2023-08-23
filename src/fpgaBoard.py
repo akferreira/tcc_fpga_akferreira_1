@@ -70,7 +70,7 @@ class FpgaBoard():
     return
 
 ##
-  def find_allocation_region(self, start_coord, size, direction=RIGHT,logger = None):
+  def find_allocation_region(self, start_coord, size, direction=RIGHT):
 
     if (self.getTile(start_coord).isAvailableForAllocation() == False):
       self.logger.debug(f"Can't allocate for {start_coord}. Coords are unavailable for allocation")
@@ -87,12 +87,11 @@ class FpgaBoard():
       current_resource_count = self.fpgaMatrix.calculate_region_resources(start_coord, current_static_coord)
 
       if (current_resource_count is not None):
-          #print(f'{current_resource_count} ||| {current_static_coord} = {utils.is_resource_count_sufficient(current_resource_count,size_info)}. static border = {self.is_region_border_static(start_coord,current_static_coord)}')
         if (utils.is_resource_count_sufficient(current_resource_count,size_info) and self.fpgaMatrix.is_region_border_static(start_coord,current_static_coord)):
           self.logger.info(f"Succesfully found an available region with {current_resource_count} at [{start_coord};{current_static_coord}]")
           return [start_coord, current_static_coord]
 
-
+    self.logger.debug(f"No allocation found for {start_coord} that satisfies {size_info}")
     return None
   
   

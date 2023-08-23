@@ -17,6 +17,12 @@ class FpgaMatrix:
         self.height = len(self.matrix)
         self.width = len(self.matrix[0])
         
+    def getAllTiles(self):
+        tiles = []
+        for row in self.matrix:
+            for column in row:
+                tiles.append(column)
+        return tiles
 
     def getTile(self, coordinate):
         return self.matrix[coordinate[1]][coordinate[0]]
@@ -104,6 +110,7 @@ class FpgaMatrix:
 
 
     def is_region_border_static(self, start_coords, end_coords):
+        MINIMUM_COUNT = 2
         start_column, start_row = start_coords
         end_column, end_row = end_coords
 
@@ -156,10 +163,6 @@ class FpgaMatrix:
 
                 if (self.getTile((column, row)).partition != currentPartition):
                     return
-                    if (self.isCoordsEdgeStatic((column, row)) == True):
-                        continue
-                    else:
-                        return
 
                 resource = self.getTile((column, row)).resource
                 resourceCount[resource] += self.rowResourceInfo[resource]
@@ -182,10 +185,29 @@ class FpgaMatrix:
     def get_free_resource_count(self):
         return
 
-    def get_single_partition_resource_report(self):
+    def get_single_partition_resource_report(self,partition):
+        partition_tiles = [tile for tile in self.getAllTiles() if tile.partition == partition]
         return
 
     def get_complete_partition_resource_report(self):
+        tiles = [tile for tile in self.getAllTiles() if tile.partition is not None]
+        partitions = []
+
+        for tile in tiles:
+            try:
+                partitions[tile.partition].append(tile)
+            except IndexError:
+                partitions.append([tile])
+
+        for partition in partitions:
+            upperleft_tile = partition[0]
+            bottomright_tile = partition[-1]
+            upperleft_coords = (upperleft_tile.column,upperleft_tile.row)
+            bottomright_coords = (bottomright_tile.column, bottomright_tile.row)
+            print(f'{upperleft_tile.partition}: {self.calculate_region_resources(upperleft_coords,bottomright_coords)}')
+
+
+
         return
 
     

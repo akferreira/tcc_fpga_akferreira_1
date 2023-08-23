@@ -48,7 +48,7 @@ fpga_config.update(utils.load_json_config_file( os.path.join(parent_dir,partitio
 fpgaBoard = FpgaBoard(fpga_config,logger)
 
 random_coords =  utils.generate_random_fpga_coord(15, 182, fpgaBoard)
-allocation_coords = fpgaBoard.fpgaMatrix.create_matrix_loop(random_coords)
+allocation_coords = fpgaBoard.fpgaMatrix.create_matrix_loop(random_coords,excludeStatic = True)
 logger.info(len(allocation_coords))
 for i,coords in enumerate(allocation_coords):
   logger.debug(f'Attempt number {i} at {coords}')
@@ -62,11 +62,5 @@ if (allocation_region_test is not None):
 
 
 utils.print_board(fpgaBoard)
+fpgaBoard.fpgaMatrix.get_complete_partition_resource_report()
 exit(0)
-
-fpgaBoard.allocate_region((59,14),(152, 13) )
-print(fpgaBoard.fpgaMatrix.calculate_region_resources((59,14),(152, 13) ))
-utils.print_board(fpgaBoard)
-
-
-print(fpgaBoard.isCoordsEdgeBoard( (0,0) ))
