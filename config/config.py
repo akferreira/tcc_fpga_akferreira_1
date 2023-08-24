@@ -8,8 +8,9 @@ def argparser():
   parser.add_argument('-s', '--silent', action='store_true')
   parser.add_argument('--fpga-config-loc',dest= 'fpga_config_filename',default = 'fpga.json')
   parser.add_argument('--partition-config-loc',dest = 'partition_config_filename',default = 'partition.json')
-  parser.add_argument('--log-loc',dest='logfile_filename',default = 'log.json')
+  parser.add_argument('--log-loc',dest='log_loc',default = 'log.json')
   parser.add_argument('--fig-loc', dest='fig_loc',default = 'FpgaAllocation.png')
+  parser.add_argument('--topologia-loc', dest='top_loc',default='topologia.json')
   args = parser.parse_args()
   return args
 

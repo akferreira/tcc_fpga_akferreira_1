@@ -14,11 +14,19 @@ class AllocationError():
         return
 
 
-def generate_random_fpga_coord(max_row, max_column, fpgaBoard):
+def generate_random_fpga_coord(fpgaBoard):
+    max_row = fpgaBoard.dimensions[0]
+    max_column = fpgaBoard.dimensions[1]
     randx = random.randrange(max_column)
     randy = random.randrange(max_row)
 
     return (randx, randy)
+
+def generate_random_direction(directions):
+    return random.randrange(len(directions))
+
+def generate_random_size(sizes):
+    return sizes[random.randrange(len(sizes))]
 
 
 def circular_range(start, stop):
@@ -31,7 +39,6 @@ def load_json_config_url(url):
     return config
 
 def load_json_config_file(path):
-    print(path)
     with open(path) as json_file:
         config = json.load(json_file)
         return config
@@ -42,9 +49,6 @@ def is_resource_count_sufficient(resources1, resources2):
 
 def sortCoords(coord1,coord2):
     return
-          
-
-
 
 def print_board(fpgaBoard,toFile = False,figloc = 'FpgaAllocation.png'):
     print_array = np.zeros([fpgaBoard.dimensions[0] * 20, fpgaBoard.dimensions[1]])
@@ -58,6 +62,13 @@ def print_board(fpgaBoard,toFile = False,figloc = 'FpgaAllocation.png'):
         plt.savefig(figloc)
     else:
         plt.show()
+
+
+def load_topology(path):
+    with open(path) as json_file:
+        config = json.load(json_file)
+        return config
+    return
 
 
 

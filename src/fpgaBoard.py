@@ -12,7 +12,7 @@ RIGHT = 0
 UP = 1
 
 class FpgaBoard():
-  def __init__(self,fpgaConfig,logger = None):
+  def __init__(self,fpgaConfig,logger):
     self.dimensions = [0,0]
     self.rowResourceInfo = dict()
     self.partitionCount = 0
@@ -129,6 +129,26 @@ class FpgaBoard():
     self.partitionCount+=1
 
   def full_board_allocation(self):
+    full_loop = False
+    sizes = ['S','M','L']
+    
+    while (full_loop == False):
+      random_coords = utils.generate_random_fpga_coord(self)
+      direction = random.randrange(2)
+      size = sizes[random.randrange(3)]
+      allocation_coords = self.fpgaMatrix.create_matrix_loop(random_coords,direction = direction, excludeStatic=True,
+                                                                  excludeAllocated=True)
+      self.logger.info(f'Attempting new allocation of {size=}')
+      for i, coords in enumerate(allocation_coords):
+        self.logger.debug(f'Attempt number {i} at {coords}')
+        allocation_region_test = self.find_allocation_region(coords, size)
+
+        if (allocation_region_test is not None):
+          self.allocate_region(allocation_region_test[0], allocation_region_test[1], allocation_region_test[2])
+          break
+
+      full_loop = (i + 1 == len(allocation_coords))
+
     return
 
   def get_complete_partition_resource_report(self):
@@ -139,6 +159,12 @@ class FpgaBoard():
 
     json_output = json.dumps(output,indent = 4)
     print(json_output)
+    return
+
+  def save_board_to_file(self):
+    return
+
+  def load_board_to_file(self):
     return
 
 
