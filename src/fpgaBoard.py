@@ -16,6 +16,7 @@ class FpgaBoard():
     self.dimensions = [0,0]
     self.rowResourceInfo = dict()
     self.partitionCount = 0
+    self.partitionInfo = {}
     self.resourceCount = {'BRAM': 0,'CLB': 0, 'DSP': 0, 'IO': 0}
     self.config = fpgaConfig
     self.logger = logger
@@ -79,17 +80,17 @@ class FpgaBoard():
     size_info = self.config['partition_size'][size]
     scan_coords = self.fpgaMatrix.create_matrix_loop(start_coord,direction,excludeStatic = True)
 
-    for current_static_coord in scan_coords:
-      if (current_static_coord is None):
+    for current_coord in scan_coords:
+      if (current_coord is None):
         self.logger.error(f"Can't allocate for {start_coord}. Found a None tile in the iteration coords")
         return
 
-      current_resource_count = self.fpgaMatrix.calculate_region_resources(start_coord, current_static_coord)
+      current_resource_count = self.fpgaMatrix.calculate_region_resources(start_coord, current_coord)
 
       if (current_resource_count is not None):
-        if (utils.is_resource_count_sufficient(current_resource_count,size_info) and self.fpgaMatrix.is_region_border_static(start_coord,current_static_coord)):
-          self.logger.info(f"Succesfully found an available region with {current_resource_count} at [{start_coord};{current_static_coord}]")
-          return [start_coord, current_static_coord]
+        if (utils.is_resource_count_sufficient(current_resource_count,size_info) and self.fpgaMatrix.is_region_border_static(start_coord,current_coord)):
+          self.logger.info(f"Succesfully found an available region with {current_resource_count} at [{start_coord};{current_coord}]")
+          return [start_coord, current_coord,current_resource_count]
 
     self.logger.debug(f"No allocation found for {start_coord} that satisfies {size_info}")
     return None
@@ -97,7 +98,7 @@ class FpgaBoard():
   
   
 ##
-  def allocate_region(self,start_coords,end_coords):
+  def allocate_region(self,start_coords,end_coords,region_resource_count):
     start_column,start_row = start_coords
     end_column,end_row = end_coords
 
@@ -121,6 +122,23 @@ class FpgaBoard():
           self.getTile((column,row)).partition = self.partitionCount
 
     self.logger.info('Succesfully allocated region')
+    self.partitionInfo[self.partitionCount] = {
+      'coords': [(start_column,start_row),(end_column,end_row)],
+      'resources': region_resource_count
+    }
     self.partitionCount+=1
+
+  def full_board_allocation(self):
+    return
+
+  def get_complete_partition_resource_report(self):
+    output = {}
+
+    for partition,info in self.partitionInfo.items():
+      output[f'Part{partition-1}'] = info['resources']
+
+    json_output = json.dumps(output,indent = 4)
+    print(json_output)
+    return
 
 

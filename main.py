@@ -5,6 +5,7 @@ from pathlib import Path
 import random
 from src import utils
 from src.fpgaBoard import FpgaBoard
+from config import config
 import argparse
 import logging
 
@@ -12,6 +13,7 @@ fpga_config_url = 'https://raw.githubusercontent.com/akferreira/tcc_fpga_akferre
 partition_config_url = 'https://raw.githubusercontent.com/akferreira/tcc_fpga_akferreira_1/main/partition.json'
 fpga_config_filename = 'fpga.json'
 partition_config_filename = 'partition.json'
+logfile_filename = 'run.log'
 coord_X = 0
 coord_Y = 1
 matrix_line = 0
@@ -36,13 +38,16 @@ def config_logger(args):
     logger.setLevel(logging.DEBUG)
   elif(args.silent == True):
     logger.setLevel(logging.ERROR)
+  else:
+    logger.setLevel(logging.INFO)
   return logger
 
 
-args = config_argparser()
+args = config.argparser()
 logger = config_logger(args)
 
 config_dir = os.path.join(Path(__file__).parent,'config')
+log_dir = os.path.join(Path(__file__).parent,'logs')
 print(config_dir)
 fpga_config = utils.load_json_config_file( os.path.join(config_dir,fpga_config_filename) )
 fpga_config.update(utils.load_json_config_file( os.path.join(config_dir,partition_config_filename)))
@@ -55,18 +60,19 @@ full_loop = False
 
 while (full_loop == False):
   random_coords =  utils.generate_random_fpga_coord(15, 182, fpgaBoard)
-  allocation_coords = fpgaBoard.fpgaMatrix.create_matrix_loop(random_coords,excludeStatic = True)
-  logger.info(len(allocation_coords))
+  allocation_coords = fpgaBoard.fpgaMatrix.create_matrix_loop(random_coords,excludeStatic = True,excludeAllocated=True)
+  logger.info('Attempting new allocation')
   for i,coords in enumerate(allocation_coords):
     logger.debug(f'Attempt number {i} at {coords}')
     allocation_region_test = fpgaBoard.find_allocation_region(coords, 'S')
     
     if(allocation_region_test is not None):
-      fpgaBoard.allocate_region(allocation_region_test[0], allocation_region_test[1])
+      fpgaBoard.allocate_region(allocation_region_test[0], allocation_region_test[1], allocation_region_test[2])
       break
       
   full_loop = (i+1==len(allocation_coords))
 
-utils.print_board(fpgaBoard)
-fpgaBoard.fpgaMatrix.get_complete_partition_resource_report()
+
+fpgaBoard.get_complete_partition_resource_report()
+utils.print_board(fpgaBoard,toFile=True,figloc = args.fig_loc)
 exit(0)

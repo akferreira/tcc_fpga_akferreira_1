@@ -46,7 +46,7 @@ def sortCoords(coord1,coord2):
 
 
 
-def print_board(fpgaBoard):
+def print_board(fpgaBoard,toFile = False,figloc = 'FpgaAllocation.png'):
     print_array = np.zeros([fpgaBoard.dimensions[0] * 20, fpgaBoard.dimensions[1]])
     for row_number, row_content in enumerate(fpgaBoard.getMatrix()):
         for column_number, tile in enumerate(row_content):
@@ -54,7 +54,10 @@ def print_board(fpgaBoard):
                 print_array[row_number * 20 + i][column_number] = (tile.partition + 1) * 20 if tile.partition is not None else 0
 
     plt.matshow(print_array)
-    plt.show()
+    if(toFile):
+        plt.savefig(figloc)
+    else:
+        plt.show()
 
 
 

@@ -27,7 +27,7 @@ class FpgaMatrix:
     def getTile(self, coordinate):
         return self.matrix[coordinate[1]][coordinate[0]]
 
-    def create_matrix_loop(self, start_coords, direction=RIGHT,excludeStatic = False):
+    def create_matrix_loop(self, start_coords, direction=RIGHT,excludeStatic = False,excludeAllocated = True):
         '''
         Gera uma matriz de coordenadas a partir da matriz do fpga, percorrendo o fpga ou horizontalmente da esquerda para direita
         ou verticalmente de baixo para cima.
@@ -53,6 +53,10 @@ class FpgaMatrix:
 
         head.extend(body)
         head.extend(tail)
+        coord_loop = [coords for coords in head if
+                      (excludeStatic == False or self.getTile(coords).static == False) and
+                      (excludeAllocated == False or self.getTile(coords).partition is None)
+                      ]
         return [coords for coords in head if(excludeStatic == False or self.getTile(coords).static == False)]
 
 
