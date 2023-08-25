@@ -14,6 +14,8 @@ class FpgaTile():
     self.resource = resource
     self.partition = None
     self.static = False
+    self.edgeStatic = None
+    self.innerStatic = None
     self.column = column
     self.row = row
     self.logger = logger

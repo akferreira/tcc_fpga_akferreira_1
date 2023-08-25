@@ -129,7 +129,7 @@ class FpgaMatrix:
                 adjacent_coords = [(column + 1, row), (column - 1, row), (column, row + 1), (column, row - 1)]
                 for adjacent_coord in adjacent_coords:
                     try:
-                        if (self.isCoordsEdgeStatic(adjacent_coord) == True):
+                        if (self.getTile(adjacent_coord).edgeStatic == True):
                             return True
                     except IndexError:
                         continue
@@ -150,7 +150,7 @@ class FpgaMatrix:
             self.getTile(end_coords)
 
         except IndexError as Error:
-            logger.error(f"Cannot calculate resources for region {start_coords}::{end_coords}. Out of bounds")
+            self.logger.error(f"Cannot calculate resources for region {start_coords}::{end_coords}. Out of bounds")
             return
 
         if (start_column > end_column):
@@ -164,16 +164,17 @@ class FpgaMatrix:
 
         for row in range(start_row, end_row + 1):
             for column in range(start_column, end_column + 1):
+                currentTile = self.getTile((column, row))
 
-                if (self.getTile((column, row)).partition != currentPartition):
+                if (currentTile.partition != currentPartition):
                     return
 
-                resource = self.getTile((column, row)).resource
+                resource = currentTile.resource
                 resourceCount[resource] += self.rowResourceInfo[resource]
 
         return resourceCount
 
-    def get_all_edge_static_coords(self,coords,direction):
+    def get_all_edge_static_coords(self,coords,direction = RIGHT):
         scan_coords_temp = self.create_matrix_loop(coords,direction)
         scan_coords = [coord for coord in scan_coords_temp if self.isCoordsEdgeStatic(coord) == True]
         return scan_coords
