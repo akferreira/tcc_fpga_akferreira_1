@@ -3,7 +3,10 @@ from urllib.request import urlopen
 import json
 from collections import Counter,defaultdict
 import random
-
+from multiprocessing import Lock, Process, Queue, current_process,Pool
+from functools import partial
+import time
+import queue
 from . import utils
 from .fpgaTile import FpgaTile
 from .fpgaMatrix import FpgaMatrix
@@ -12,7 +15,8 @@ RIGHT = 0
 UP = 1
 MIN_ROW_DIFF = 1
 MIN_COL_DIFF = 10
-MIN_AREA = {'S':35, 'M': 140, 'L':300}
+MIN_AREA = {'S':100, 'M': 230, 'L':500}
+MAX_AREA = {'S':170, 'M': 310, 'L':800}
 
 class FpgaBoard():
   def __init__(self,fpgaConfig,logger):
@@ -71,7 +75,10 @@ class FpgaBoard():
       upper_left, bottom_right = static_subcoords
       for column in range(upper_left[0], bottom_right[0] + 1):
         for line in range(upper_left[1], bottom_right[1]):
-          self.getTile((column, line)).static = True
+          tile = self.getTile((column, line))
+          tile.static = True
+          tile.partition = 0
+
 
     self.classify_static_tiles()
     self.partitionCount += 1
@@ -85,7 +92,6 @@ class FpgaBoard():
       static_tile.innerStatic = False
 
   def find_allocation_region(self, start_coord, size, direction=RIGHT):
-
     if (self.getTile(start_coord).isAvailableForAllocation() == False):
       self.logger.debug(f"Can't allocate for {start_coord}. Coords are unavailable for allocation")
       return
@@ -100,13 +106,13 @@ class FpgaBoard():
 
       column_diff,row_diff = utils.coord_diff(start_coord,current_coord)
       if(column_diff*row_diff > MIN_AREA[size]):
-        #print(f"min_area {column_diff*row_diff} for {size}")
+
         current_resource_count = self.fpgaMatrix.calculate_region_resources(start_coord, current_coord)
 
         if (current_resource_count is not None):
           if (self.fpgaMatrix.is_region_border_static(start_coord,current_coord) and utils.is_resource_count_sufficient(current_resource_count,size_info)):
-            self.logger.info(f"Succesfully found an available region with {current_resource_count} at [{start_coord};{current_coord}]")
-            print(f'{column_diff*row_diff}')
+            #self.logger.info(f"Succesfully found an available region with {current_resource_count} at [{start_coord};{current_coord}]")
+            #print(f"area {column_diff*row_diff} for {size}")
             return [start_coord, current_coord,current_resource_count]
 
     self.logger.debug(f"No allocation found for {start_coord} that satisfies {size_info}")
@@ -119,6 +125,8 @@ class FpgaBoard():
 
     self.logger.info(f"Attempting allocation for [({start_column},{start_row});({end_column},{end_row})]")
 
+    count = 0
+
     for column in range(start_column,end_column+1):
       for row in range(start_row,end_row+1):
         if(self.getTile((column,row)).isAvailableForAllocation() == False):
@@ -127,19 +135,20 @@ class FpgaBoard():
     
     for column in range(start_column,end_column+1):
       for row in range(start_row,end_row+1):
-        if(self.getTile((column,row)).static == False):
-          self.getTile((column,row)).partition = self.partitionCount
+        tile = self.getTile((column,row))
+        if(tile.static == False):
+          tile.partition = self.partitionCount
 
     self.logger.info('Succesfully allocated region')
     self.partitionInfo[self.partitionCount] = {
       'coords': [(start_column,start_row),(end_column,end_row)],
       'resources': region_resource_count
     }
+
     self.partitionCount+=1
 
   def full_board_allocation(self,sizes):
     full_loop = False
-    
     while (full_loop == False):
       random_coords = utils.generate_random_fpga_coord(self)
       direction = random.randrange(2)
@@ -147,11 +156,13 @@ class FpgaBoard():
       allocation_coords = self.fpgaMatrix.create_matrix_loop(random_coords,direction = direction, excludeStatic=True,
                                                                   excludeAllocated=True)
       self.logger.info(f'Attempting new allocation of {size=}')
+
       for i, coords in enumerate(allocation_coords):
         self.logger.debug(f'Attempt number {i} at {coords}')
         allocation_region_test = self.find_allocation_region(coords, size)
 
         if (allocation_region_test is not None):
+          self.logger.info(f"Succesfully found an available region with {allocation_region_test[2]} at [{allocation_region_test[0]};{ allocation_region_test[1]}]")
           self.allocate_region(allocation_region_test[0], allocation_region_test[1], allocation_region_test[2])
           break
 

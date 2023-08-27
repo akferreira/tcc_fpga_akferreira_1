@@ -20,6 +20,10 @@ class FpgaTile():
     self.row = row
     self.logger = logger
 
+  def isAvailableForAllocation(self):
+    return (self.partition is None)
+
+  """
   @property
   def static(self):
     return self._static
@@ -29,9 +33,8 @@ class FpgaTile():
     self._static = isStatic
     self.partition = 0 if isStatic else self.partition
 
-  def isAvailableForAllocation(self):
-    return (self.partition is None)
-
+  """
+  """
   @property
   def partition(self):
     return self._partition
@@ -49,3 +52,4 @@ class FpgaTile():
     else:
       self._partition = partition
     return
+  """

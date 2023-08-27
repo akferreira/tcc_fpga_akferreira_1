@@ -7,11 +7,11 @@ from . import utils
 
 RIGHT = 0
 UP = 1
-
+count = 0
 
 class FpgaMatrix:
     def __init__(self,fpgaConfig,logger = None):
-        self.logger = None
+        self.logger = logger
         self.matrix = [[FpgaTile(resourceType,column,row,logger) for column,resourceType in enumerate(fpgaConfig['columns'])] for row in range(fpgaConfig['row_count'])]
         self.rowResourceInfo = fpgaConfig['row_resource_info']
         self.height = len(self.matrix)
@@ -24,8 +24,37 @@ class FpgaMatrix:
                 tiles.append(column)
         return tiles
 
+    def get_tile_range_from_row(self,row, column_range):
+        return self.matrix[row][ column_range[0]:column_range[1]+1 ]
+
     def getTile(self, coordinate):
         return self.matrix[coordinate[1]][coordinate[0]]
+
+    def is_tile_excluded(self,coords,excludeStatic = False,excludeAllocated = True):
+        tile = self.getTile(coords)
+
+        if(tile.static == True and excludeStatic == True):
+            return True
+        if(tile.partition is not None and excludeAllocated == True):
+            return True
+        return False
+
+    def exclude_tiles_from_coords(self,coords,excludeStatic = False,excludeAllocated = True):
+        filtered_coords = []
+
+
+        for coord in coords:
+            tile = self.getTile(coord)
+            if(tile.static == True and excludeStatic == True):
+                continue
+            if(tile.partition is not None and excludeAllocated == True):
+                continue
+
+            filtered_coords.append(coord)
+
+
+        return filtered_coords
+
 
     def create_matrix_loop(self, start_coords, direction=RIGHT,excludeStatic = False,excludeAllocated = True):
         '''
@@ -53,11 +82,9 @@ class FpgaMatrix:
 
         head.extend(body)
         head.extend(tail)
-        coord_loop = [coords for coords in head if
-                      (excludeStatic == False or self.getTile(coords).static == False) and
-                      (excludeAllocated == False or self.getTile(coords).partition is None)
-                      ]
-        return [coords for coords in head if(excludeStatic == False or self.getTile(coords).static == False)]
+        coord_loop = self.exclude_tiles_from_coords(head,excludeStatic,excludeAllocated)
+        #coord_loop = [coords for coords in head if self.is_tile_excluded(coords,excludeStatic,excludeAllocated) == False]
+        return coord_loop
 
 
     def isCoordsInnerStatic(self, coords):
@@ -81,6 +108,7 @@ class FpgaMatrix:
     def isCoordsEdgeStatic(self, coords):
         if (self.getTile(coords).static == False):
             return False
+
 
         coord_column, coord_row, = coords
         adjacent_coords = [(coord_column + 1, coord_row), (coord_column - 1, coord_row), (coord_column, coord_row + 1),
@@ -125,9 +153,17 @@ class FpgaMatrix:
             start_row, end_row = end_row, start_row
 
         for row in range(start_row, end_row + 1):
-            for column in range(start_column, end_column + 1):
+            column_range = []
+
+            if(row == start_row or row == end_row):
+                column_range = range(start_column, end_column + 1)
+            else:
+                column_range = [start_column,end_column]
+
+            for column in column_range:
                 adjacent_coords = [(column + 1, row), (column - 1, row), (column, row + 1), (column, row - 1)]
                 for adjacent_coord in adjacent_coords:
+
                     try:
                         if (self.getTile(adjacent_coord).edgeStatic == True):
                             return True
@@ -145,14 +181,6 @@ class FpgaMatrix:
         start_column, start_row = start_coords
         end_column, end_row = end_coords
 
-        try:
-            self.getTile(start_coords)
-            self.getTile(end_coords)
-
-        except IndexError as Error:
-            self.logger.error(f"Cannot calculate resources for region {start_coords}::{end_coords}. Out of bounds")
-            return
-
         if (start_column > end_column):
             start_column, end_column = end_column, start_column
 
@@ -163,19 +191,25 @@ class FpgaMatrix:
         currentPartition = self.getTile(start_coords).partition
 
         for row in range(start_row, end_row + 1):
-            for column in range(start_column, end_column + 1):
-                currentTile = self.getTile((column, row))
+            try:
+                row_tiles = self.get_tile_range_from_row(row,(start_column,end_column))
 
-                if (currentTile.partition != currentPartition):
+                for currentTile in row_tiles:
+                    if (currentTile.partition != currentPartition):
+                        return
+
+                    resource = currentTile.resource
+                    resourceCount[resource] += self.rowResourceInfo[resource]
+
+
+            except IndexError as Error:
+                    self.logger.error(f"Cannot calculate resources for region {start_coords}::{end_coords}. Out of bounds")
                     return
-
-                resource = currentTile.resource
-                resourceCount[resource] += self.rowResourceInfo[resource]
 
         return resourceCount
 
     def get_all_edge_static_coords(self,coords,direction = RIGHT):
-        scan_coords_temp = self.create_matrix_loop(coords,direction)
+        scan_coords_temp = self.create_matrix_loop(coords,direction,excludeStatic = False,excludeAllocated = False)
         scan_coords = [coord for coord in scan_coords_temp if self.isCoordsEdgeStatic(coord) == True]
         return scan_coords
 

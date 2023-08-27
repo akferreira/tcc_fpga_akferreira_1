@@ -33,7 +33,6 @@ fpga_config = utils.load_json_config_file( os.path.join(config_dir,fpga_config_f
 fpga_config.update(utils.load_json_config_file( os.path.join(config_dir,partition_config_filename)))
 topology = utils.load_topology(os.path.join(config_dir,fpga_topology_filename))
 fpgaBoard = FpgaBoard(fpga_config,logger)
-#fpgaBoard.load_allocated_from_file(args.fpga_data_loc)
 
 
 fpgaBoard.full_board_allocation(sizes = list(fpga_config['partition_size'].keys()))

@@ -23,7 +23,7 @@ def generate_random_fpga_coord(fpgaBoard):
 def coord_diff(start_coord,end_coord):
     start_coord,end_coord = sort_coords(start_coord, end_coord)
 
-    return end_coord[0]-start_coord[0],end_coord[1]-start_coord[1]
+    return end_coord[0]-start_coord[0]+1,end_coord[1]-start_coord[1]+1
 
 
 
