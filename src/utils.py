@@ -12,9 +12,9 @@ class AllocationError():
         return
 
 
-def generate_random_fpga_coord(fpgaBoard):
-    max_row = fpgaBoard.dimensions[0]
-    max_column = fpgaBoard.dimensions[1]
+def generate_random_fpga_coord(fpgaMatrix):
+    max_row = fpgaMatrix.height
+    max_column = fpgaMatrix.width
     randx = random.randrange(max_column)
     randy = random.randrange(max_row)
 
@@ -25,7 +25,16 @@ def coord_diff(start_coord,end_coord):
 
     return end_coord[0]-start_coord[0]+1,end_coord[1]-start_coord[1]+1
 
+def check_region_overlap(start1,end1,start2,end2):
+    start_col1, start_row1 = start1 #l1
+    start_col2, start_row2 = start2#l2
+    end_col1, end_row1 = end1#r1
+    end_col2, end_row2 = end2#r2
 
+    if(start_col1 > end_col2 or end_col1 < start_col2 or start_row1 > end_row2 or end_row1 < start_row2):
+        return False
+
+    return True
 
 
 def generate_random_direction(directions):
@@ -78,12 +87,11 @@ def get_edge_coords_region(start_coords,end_coords):
     return
 
 def print_board(fpgaBoard, toFile=False, figloc='FpgaAllocation.png'):
-    print_array = np.zeros([fpgaBoard.dimensions[0] * 20, fpgaBoard.dimensions[1]])
+    print_array = np.zeros([fpgaBoard.fpgaMatrix.height * 20, fpgaBoard.fpgaMatrix.width])
     for row_number, row_content in enumerate(fpgaBoard.getMatrix()):
         for column_number, tile in enumerate(row_content):
             for i in range(20):
-                print_array[row_number * 20 + i][column_number] = (
-                                                                              tile.partition + 1) * 20 if tile.partition is not None else 0
+                print_array[row_number * 20 + i][column_number] = ( tile.partition + 1) * 20 if tile.partition is not None else 0
 
     plt.matshow(print_array)
     if (toFile):
@@ -98,6 +106,13 @@ def load_topology(path):
     fpga_topology = {}
     for entry in topology:
         nodo,data = list(entry.items())[0]
-        fpga_topology[nodo] = data
+        fpga_topology[nodo] = {'Links': data['Links']}
+        try:
+            fpga_topology[nodo]['FPGA'] = data['FPGA'][0]
+        except IndexError:
+            fpga_topology[nodo]['FPGA'] = data['FPGA']
 
     return fpga_topology
+
+def update_topology(topology,):
+    return

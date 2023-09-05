@@ -37,20 +37,6 @@ class FpgaBoard():
   def getMatrix(self):
     return self.fpgaMatrix.matrix
 
-  @property
-  def fpgaMatrix(self):
-    return self._matrix
-
-  @fpgaMatrix.setter
-  def fpgaMatrix(self,newMatrix):
-    self._matrix = newMatrix
-    self.dimensions = [newMatrix.height,newMatrix.width]
-
-    for row in newMatrix.matrix:
-      for column in row:
-        self.inc_resource(column.resource)
-
-
   def load_config(self,fpgaConfig,logger = None):
     self.rowResourceInfo = fpgaConfig['row_resource_info']
     self.fpgaMatrix = FpgaMatrix(fpgaConfig,logger)
@@ -74,7 +60,7 @@ class FpgaBoard():
     for static_subcoords in static_coords:
       upper_left, bottom_right = static_subcoords
       for column in range(upper_left[0], bottom_right[0] + 1):
-        for line in range(upper_left[1], bottom_right[1]):
+        for line in range(upper_left[1], bottom_right[1]+1):
           tile = self.getTile((column, line))
           tile.static = True
           tile.partition = 0
@@ -106,11 +92,13 @@ class FpgaBoard():
 
       column_diff,row_diff = utils.coord_diff(start_coord,current_coord)
       if(column_diff*row_diff > MIN_AREA[size]):
+        overlap = False
 
-        current_resource_count = self.fpgaMatrix.calculate_region_resources(start_coord, current_coord)
+        current_resource_count = self.fpgaMatrix.calculate_region_resources(start_coord, current_coord,self.partitionInfo,self.staticRegion)
 
         if (current_resource_count is not None):
-          if (self.fpgaMatrix.is_region_border_static(start_coord,current_coord) and utils.is_resource_count_sufficient(current_resource_count,size_info)):
+          if (utils.is_resource_count_sufficient(current_resource_count,size_info) and self.fpgaMatrix.is_region_border_static(start_coord,current_coord)):
+
             #self.logger.info(f"Succesfully found an available region with {current_resource_count} at [{start_coord};{current_coord}]")
             #print(f"area {column_diff*row_diff} for {size}")
             return [start_coord, current_coord,current_resource_count]
@@ -146,11 +134,12 @@ class FpgaBoard():
     }
 
     self.partitionCount+=1
+    return self.partitionCount
 
   def full_board_allocation(self,sizes):
     full_loop = False
     while (full_loop == False):
-      random_coords = utils.generate_random_fpga_coord(self)
+      random_coords = utils.generate_random_fpga_coord(self.fpgaMatrix)
       direction = random.randrange(2)
       size = sizes[ random.randrange(len(sizes)) ]
       allocation_coords = self.fpgaMatrix.create_matrix_loop(random_coords,direction = direction, excludeStatic=True,
@@ -173,14 +162,22 @@ class FpgaBoard():
 
     return
 
+  def get_db_dict(self):
+    output = {'modelo': 'G','partitions': dict()}
+
+    for partition, info in self.partitionInfo.items():
+      output['partitions'][f'{partition - 1}'] = {'resources': info['resources'],'coords':info['coords']}
+
+    return output
+
   def get_complete_partition_resource_report(self):
-    output = {}
+    output = {'Modelo': 'G'}
 
     for partition,info in self.partitionInfo.items():
       output[f'Part{partition-1}'] = info['resources']
+      output[f'Part{partition-1}']['coords'] = info['coords']
 
-    json_output = json.dumps(output,indent = 4)
-    return json_output
+    return output
 
   def save_allocated_to_file(self,path):
     json_output = self.partitionInfo

@@ -4,10 +4,15 @@ import json
 from collections import Counter,defaultdict
 import random
 from . import utils
+from time import time_ns
 
 RIGHT = 0
 UP = 1
 count = 0
+success = 0
+total = 0
+part1 = 0
+part2 = 0
 
 class FpgaMatrix:
     def __init__(self,fpgaConfig,logger = None):
@@ -172,12 +177,15 @@ class FpgaMatrix:
 
         return False
 
-    def calculate_region_resources(self, start_coords,end_coords):  # A função só deve retornar um valor válido se a região dada não pega de duas ou mais regiões
+    def calculate_region_resources(self, start_coords,end_coords,partitionInfo = {},StaticRegion = []):  # A função só deve retornar um valor válido se a região dada não pega de duas ou mais regiões
         '''
         Calcula a quantidade de recursos em uma dada região retangular.
         Entrada: start_coords -> coordenadas do canto superior esquerdo do retângulo
         end_coords -> coordenadas do canto inferior direito do retângulo
         '''
+
+        overlap = False
+        l2,r2 = 0,0
         start_column, start_row = start_coords
         end_column, end_row = end_coords
 
@@ -187,24 +195,49 @@ class FpgaMatrix:
         if (start_row > end_row):
             start_row, end_row = end_row, start_row
 
+        for coords in partitionInfo.values():
+            if (overlap):
+                return
+            l2, r2 = coords['coords']
+            overlap = utils.check_region_overlap((start_column,start_row),(end_column,end_row),l2,r2)
+            if(overlap):
+               return
+
+
+        for coords in StaticRegion:
+            if (overlap):
+                return
+            l2, r2 = coords
+            overlap = utils.check_region_overlap((start_column,start_row),(end_column,end_row),l2,r2)
+            if(overlap):
+                return
+            #print(f"overlap? {overlap}")
+
+
+
         resourceCount = {'BRAM': 0,'CLB': 0, 'DSP': 0, 'IO': 0}
         currentPartition = self.getTile(start_coords).partition
+
+
 
         for row in range(start_row, end_row + 1):
             try:
                 row_tiles = self.get_tile_range_from_row(row,(start_column,end_column))
-
                 for currentTile in row_tiles:
                     if (currentTile.partition != currentPartition):
+                        if(overlap == False):
+                            print("false negative")
                         return
-
                     resource = currentTile.resource
-                    resourceCount[resource] += self.rowResourceInfo[resource]
+                    resourceCount[resource] += 1
 
 
             except IndexError as Error:
                     self.logger.error(f"Cannot calculate resources for region {start_coords}::{end_coords}. Out of bounds")
                     return
+
+        for resource in resourceCount:
+            resourceCount[resource] *= self.rowResourceInfo[resource]
 
         return resourceCount
 
@@ -223,6 +256,14 @@ class FpgaMatrix:
 
     def get_free_resource_count(self):
         return
+
+    def check_region_overlap(self,start1,end1,start2,end2):
+        start_col1, start_row1 = start1
+        start_col2, start_row2 = start2
+        end_col1, end_row1 = end1
+        end_col2, end_row2 = end2
+
+        return (not (start_col1 >= end_col2 or end_col1 <= start_col2 or start_row1 >= end_row2 or end_row1 <= start_row2))
 
     def get_single_partition_resource_report(self,partition):
         partition_tiles = [tile for tile in self.getAllTiles() if tile.partition == partition]

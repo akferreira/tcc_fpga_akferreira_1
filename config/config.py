@@ -6,6 +6,7 @@ def argparser():
     parser = argparse.ArgumentParser(prog='Fpga automated partition tool')
     parser.add_argument('-d','--debug',action='store_true')
     parser.add_argument('-s', '--silent', action='store_true')
+    parser.add_argument('--recreate', action='store_true')
     parser.add_argument('--fpga-config-loc',dest= 'fpga_config_filename',default = 'fpga.json')
     parser.add_argument('--partition-config-loc',dest = 'partition_config_filename',default = 'partition.json')
     parser.add_argument('--log-loc',dest='log_loc',default = 'log.json')
