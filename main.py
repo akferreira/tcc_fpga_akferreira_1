@@ -74,20 +74,24 @@ topologias = []
 
 tcc_db = get_database()
 collection_name = tcc_db['collection_test']
+allocation_possibility = tcc_db['allocation_possibility']
+region_resource_data = tcc_db['region_resource_data']
+
 
 
 #fpgaBoard.full_board_allocation(sizes = list(fpga_config['partition_size'].keys()))
 #fpgaBoard.get_complete_partition_resource_report()
 #utils.print_board(fpgaBoard,toFile=True,figloc = args.fig_loc)
 #fpgaBoard.save_allocated_to_file(args.fpga_data_loc)
-for i in range(10):
-    logger.info("start")
-    fpgaBoard = FpgaBoard(fpga_config,logger)
-    fpgaBoard.full_board_allocation(sizes = list(fpga_config['partition_size'].keys()))
-    partition_info = fpgaBoard.partitionInfo
-    logger.info("end")
+allocation_info_temp = allocation_possibility.find()
+allocation_info = defaultdict(lambda: defaultdict(dict))
+for entry in allocation_info_temp:
+    allocation_info[(entry['column'],entry['row'])][entry['size']] = entry['possible']
 
-exit(0)
+logger.info("start")
+
+
+
 
 queries = []
 if(args.recreate):
@@ -101,7 +105,7 @@ if(args.recreate):
             for pos,fpga in enumerate(fpga_node['FPGA']):
                 print(f"{pos=}")
                 fpgaBoard = FpgaBoard(fpga_config, logger)
-                fpgaBoard.full_board_allocation(sizes=list(fpga_config['partition_size'].keys()))
+                fpgaBoard.full_board_allocation(list(fpga_config['partition_size'].keys()),allocation_info)
                 db_node = {'topology_id':i,'node_id': node_id,'fpga_id': pos}
                 db_node.update(fpgaBoard.get_db_dict())
                 topologia[node_id].append(fpgaBoard)
@@ -135,12 +139,40 @@ else:
             for fpga_id,fpga in node.items():
                 #print(f'{topology_id}//{node_id}//{fpga_id}')
                 new_topologias[topology_id][node_id][fpga_id], partititon_topology[0], partititon_topology[1] = child_region_allocation(new_topologias[topology_id][node_id][fpga_id],partititon_topology[0],partititon_topology[1])
-                new_topologias[topology_id][node_id][fpga_id].full_board_allocation(sizes = list(fpga_config['partition_size'].keys()))
+                new_topologias[topology_id][node_id][fpga_id].full_board_allocation(list(fpga_config['partition_size'].keys()),allocation_info)
     fpga_test =  new_topologias[0]['Nodo7'][0]
     print(fpga_test.get_complete_partition_resource_report())
 
+logger.info("end")
 exit(0)
 
 
 
+fpgaBoard = FpgaBoard(fpga_config,logger)
+scan_coords = fpgaBoard.fpgaMatrix.create_matrix_loop((0,0))
+queries = []
+total_len = len(scan_coords) * len(fpga_config['partition_size'].keys())
+count = 0
+for coord in scan_coords:
+    for size in fpga_config['partition_size']:
+        search_result = fpgaBoard.find_allocation_region(coord,size)
+        allocation_info = {'modelo': 'G', 'row': coord[1], 'column': coord[0],'size':size,'possible': search_result is not None}
+        count+=1
+        print(f"{count} of {total_len}")
+        queries.append(ReplaceOne({'modelo': 'G', 'row': coord[1], 'column': coord[0],'size':size}, allocation_info, upsert=True))
 
+allocation_possibility.bulk_write(queries)
+exit(0)
+
+logger.info("start")
+
+
+
+for i in range(10):
+    fpgaBoard = FpgaBoard(fpga_config,logger)
+    fpgaBoard.full_board_allocation(list(fpga_config['partition_size'].keys()),allocation_info )
+    partition_info = fpgaBoard.partitionInfo
+
+logger.info("end")
+
+exit(0)

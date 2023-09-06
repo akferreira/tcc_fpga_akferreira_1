@@ -15,7 +15,7 @@ RIGHT = 0
 UP = 1
 MIN_ROW_DIFF = 1
 MIN_COL_DIFF = 10
-MIN_AREA = {'S':100, 'M': 230, 'L':500}
+MIN_AREA = {'S':100, 'M': 210, 'L':500}
 MAX_AREA = {'S':170, 'M': 310, 'L':800}
 
 class FpgaBoard():
@@ -25,6 +25,7 @@ class FpgaBoard():
     self.partitionCount = 0
     self.partitionInfo = {}
     self.resourceCount = {'BRAM': 0,'CLB': 0, 'DSP': 0, 'IO': 0}
+    self.freeTiles = []
     self.staticRegion = None
     self.config = fpgaConfig
     self.logger = logger
@@ -41,6 +42,10 @@ class FpgaBoard():
     self.rowResourceInfo = fpgaConfig['row_resource_info']
     self.fpgaMatrix = FpgaMatrix(fpgaConfig,logger)
     self.set_static_region(fpgaConfig['static_region']['coords'])
+    for row in range(self.fpgaMatrix.height+1):
+      for column in range(self.fpgaMatrix.width+1):
+        self.freeTiles.append((column,row))
+
     return
 
   def inc_resource(self,resource):
@@ -83,20 +88,22 @@ class FpgaBoard():
       return
     
     size_info = self.config['partition_size'][size]
-    scan_coords = self.fpgaMatrix.create_matrix_loop(start_coord,direction,excludeStatic = True)
+    scan_coords = self.fpgaMatrix.create_matrix_loop(start_coord,direction)
 
     for current_coord in scan_coords:
       if (current_coord is None):
         self.logger.error(f"Can't allocate for {start_coord}. Found a None tile in the iteration coords")
         return
 
-      column_diff,row_diff = utils.coord_diff(start_coord,current_coord)
+
+
+      column_diff, row_diff = abs(current_coord[0]-start_coord[0]),abs(current_coord[1]-start_coord[1])
       if(column_diff*row_diff > MIN_AREA[size]):
 
         current_resource_count = self.fpgaMatrix.calculate_region_resources(start_coord, current_coord,self.partitionInfo,self.staticRegion)
 
         if (current_resource_count is not None):
-          if (utils.is_resource_count_sufficient(current_resource_count,size_info) and self.fpgaMatrix.is_region_border_static(start_coord,current_coord,self.staticRegion)):
+          if (self.fpgaMatrix.is_region_border_static(start_coord,current_coord,self.staticRegion) and utils.is_resource_count_sufficient(current_resource_count,size_info)):
 
             #self.logger.info(f"Succesfully found an available region with {current_resource_count} at [{start_coord};{current_coord}]")
             #print(f"area {column_diff*row_diff} for {size}")
@@ -122,6 +129,7 @@ class FpgaBoard():
     
     for column in range(start_column,end_column+1):
       for row in range(start_row,end_row+1):
+        self.freeTiles.remove((column,row))
         tile = self.getTile((column,row))
         if(tile.static == False):
           tile.partition = self.partitionCount
@@ -135,7 +143,7 @@ class FpgaBoard():
     self.partitionCount+=1
     return self.partitionCount
 
-  def full_board_allocation(self,sizes):
+  def full_board_allocation(self,sizes,allocation_info):
     full_loop = False
     while (full_loop == False):
       random_coords = utils.generate_random_fpga_coord(self.fpgaMatrix)
@@ -144,6 +152,8 @@ class FpgaBoard():
       allocation_coords = self.fpgaMatrix.create_matrix_loop(random_coords,direction = direction,excludeAllocated=True)
       self.logger.info(f'Attempting new allocation of {size=}')
       for i, coords in enumerate(allocation_coords):
+        if(allocation_info[coords][size] == False):
+          continue
         self.logger.debug(f'Attempt number {i} at {coords}')
         allocation_region_test = self.find_allocation_region(coords, size)
 

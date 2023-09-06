@@ -55,7 +55,7 @@ class FpgaMatrix:
         return filtered_coords
 
 
-    def create_matrix_loop(self, start_coords, direction=RIGHT,excludeStatic = False,excludeAllocated = True):
+    def create_matrix_loop(self, start_coords, direction=RIGHT,excludeAllocated = True):
         '''
         Gera uma matriz de coordenadas a partir da matriz do fpga, percorrendo o fpga ou horizontalmente da esquerda para direita
         ou verticalmente de baixo para cima.
