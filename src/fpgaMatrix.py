@@ -31,30 +31,24 @@ class FpgaMatrix:
 
     def get_tile_range_from_row(self,row, column_range):
         return self.matrix[row][ column_range[0]:column_range[1]+1 ]
+    def get_tile_range_from_column(self,row_range,column):
+        return self.matrix[row_range[0]:row_range[1]+1][column]
 
     def getTile(self, coordinate):
         return self.matrix[coordinate[1]][coordinate[0]]
 
-    def is_tile_excluded(self,coords,excludeStatic = False,excludeAllocated = True):
-        tile = self.getTile(coords)
 
-        if(tile.static == True and excludeStatic == True):
-            return True
-        if(tile.partition is not None and excludeAllocated == True):
-            return True
-        return False
-
-    def exclude_tiles_from_coords(self,coords,excludeStatic = False,excludeAllocated = True):
+    def exclude_tiles_from_coords(self,coords,excludeAllocated = True):
         filtered_coords = []
 
+        filtered_coords = [coord for coord in coords if excludeAllocated == False or self.getTile(coord).partition is None]
+        return filtered_coords
 
         for coord in coords:
             tile = self.getTile(coord)
-            if(tile.static == True and excludeStatic == True):
-                continue
-            if(tile.partition is not None and excludeAllocated == True):
-                continue
 
+            if(excludeAllocated == True and tile.isAvailableForAllocation() == False):
+                continue
             filtered_coords.append(coord)
 
 
@@ -87,12 +81,12 @@ class FpgaMatrix:
 
         head.extend(body)
         head.extend(tail)
-        coord_loop = self.exclude_tiles_from_coords(head,excludeStatic,excludeAllocated)
-        #coord_loop = [coords for coords in head if self.is_tile_excluded(coords,excludeStatic,excludeAllocated) == False]
+        coord_loop = self.exclude_tiles_from_coords(head,excludeAllocated)
         return coord_loop
 
 
-    def isCoordsInnerStatic(self, coords):
+    def isCoordsInnerStatic(self,coords):
+        print(coords)
         if (self.getTile(coords).static == False):
             return False
 
@@ -146,7 +140,7 @@ class FpgaMatrix:
         return False
 
 
-    def is_region_border_static(self, start_coords, end_coords):
+    def is_region_border_static(self, start_coords, end_coords,StaticRegion = []):
         MINIMUM_COUNT = 2
         start_column, start_row = start_coords
         end_column, end_row = end_coords
@@ -157,24 +151,12 @@ class FpgaMatrix:
         if (start_row > end_row):
             start_row, end_row = end_row, start_row
 
-        for row in range(start_row, end_row + 1):
-            column_range = []
-
-            if(row == start_row or row == end_row):
-                column_range = range(start_column, end_column + 1)
-            else:
-                column_range = [start_column,end_column]
-
-            for column in column_range:
-                adjacent_coords = [(column + 1, row), (column - 1, row), (column, row + 1), (column, row - 1)]
-                for adjacent_coord in adjacent_coords:
-
-                    try:
-                        if (self.getTile(adjacent_coord).edgeStatic == True):
-                            return True
-                    except IndexError:
-                        continue
-
+        overlap = False
+        for coords in StaticRegion:
+            l2, r2 = coords
+            overlap = utils.check_region_overlap((start_column-1,start_row-1),(end_column+1,end_row+1),l2,r2)
+            if(overlap):
+                return True
         return False
 
     def calculate_region_resources(self, start_coords,end_coords,partitionInfo = {},StaticRegion = []):  # A função só deve retornar um valor válido se a região dada não pega de duas ou mais regiões
@@ -196,8 +178,6 @@ class FpgaMatrix:
             start_row, end_row = end_row, start_row
 
         for coords in partitionInfo.values():
-            if (overlap):
-                return
             l2, r2 = coords['coords']
             overlap = utils.check_region_overlap((start_column,start_row),(end_column,end_row),l2,r2)
             if(overlap):
@@ -205,29 +185,19 @@ class FpgaMatrix:
 
 
         for coords in StaticRegion:
-            if (overlap):
-                return
             l2, r2 = coords
             overlap = utils.check_region_overlap((start_column,start_row),(end_column,end_row),l2,r2)
             if(overlap):
                 return
-            #print(f"overlap? {overlap}")
 
 
 
         resourceCount = {'BRAM': 0,'CLB': 0, 'DSP': 0, 'IO': 0}
-        currentPartition = self.getTile(start_coords).partition
-
-
 
         for row in range(start_row, end_row + 1):
             try:
                 row_tiles = self.get_tile_range_from_row(row,(start_column,end_column))
                 for currentTile in row_tiles:
-                    if (currentTile.partition != currentPartition):
-                        if(overlap == False):
-                            print("false negative")
-                        return
                     resource = currentTile.resource
                     resourceCount[resource] += 1
 
@@ -242,7 +212,7 @@ class FpgaMatrix:
         return resourceCount
 
     def get_all_edge_static_coords(self,coords,direction = RIGHT):
-        scan_coords_temp = self.create_matrix_loop(coords,direction,excludeStatic = False,excludeAllocated = False)
+        scan_coords_temp = self.create_matrix_loop(coords,direction,excludeAllocated = False)
         scan_coords = [coord for coord in scan_coords_temp if self.isCoordsEdgeStatic(coord) == True]
         return scan_coords
 

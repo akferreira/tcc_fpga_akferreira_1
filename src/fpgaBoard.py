@@ -92,12 +92,11 @@ class FpgaBoard():
 
       column_diff,row_diff = utils.coord_diff(start_coord,current_coord)
       if(column_diff*row_diff > MIN_AREA[size]):
-        overlap = False
 
         current_resource_count = self.fpgaMatrix.calculate_region_resources(start_coord, current_coord,self.partitionInfo,self.staticRegion)
 
         if (current_resource_count is not None):
-          if (utils.is_resource_count_sufficient(current_resource_count,size_info) and self.fpgaMatrix.is_region_border_static(start_coord,current_coord)):
+          if (utils.is_resource_count_sufficient(current_resource_count,size_info) and self.fpgaMatrix.is_region_border_static(start_coord,current_coord,self.staticRegion)):
 
             #self.logger.info(f"Succesfully found an available region with {current_resource_count} at [{start_coord};{current_coord}]")
             #print(f"area {column_diff*row_diff} for {size}")
@@ -142,10 +141,8 @@ class FpgaBoard():
       random_coords = utils.generate_random_fpga_coord(self.fpgaMatrix)
       direction = random.randrange(2)
       size = sizes[ random.randrange(len(sizes)) ]
-      allocation_coords = self.fpgaMatrix.create_matrix_loop(random_coords,direction = direction, excludeStatic=True,
-                                                                  excludeAllocated=True)
+      allocation_coords = self.fpgaMatrix.create_matrix_loop(random_coords,direction = direction,excludeAllocated=True)
       self.logger.info(f'Attempting new allocation of {size=}')
-
       for i, coords in enumerate(allocation_coords):
         self.logger.debug(f'Attempt number {i} at {coords}')
         allocation_region_test = self.find_allocation_region(coords, size)
@@ -154,8 +151,7 @@ class FpgaBoard():
           self.logger.info(f"Succesfully found an available region with {allocation_region_test[2]} at [{allocation_region_test[0]};{ allocation_region_test[1]}]")
           self.allocate_region(allocation_region_test[0], allocation_region_test[1], allocation_region_test[2])
           break
-
-      if(i + 1 == len(allocation_coords)):
+      else:
         sizes.remove(size)
 
       full_loop = (len(sizes) == 0)

@@ -75,17 +75,19 @@ topologias = []
 tcc_db = get_database()
 collection_name = tcc_db['collection_test']
 
+
+#fpgaBoard.full_board_allocation(sizes = list(fpga_config['partition_size'].keys()))
+#fpgaBoard.get_complete_partition_resource_report()
+#utils.print_board(fpgaBoard,toFile=True,figloc = args.fig_loc)
+#fpgaBoard.save_allocated_to_file(args.fpga_data_loc)
 for i in range(10):
     logger.info("start")
     fpgaBoard = FpgaBoard(fpga_config,logger)
     fpgaBoard.full_board_allocation(sizes = list(fpga_config['partition_size'].keys()))
     partition_info = fpgaBoard.partitionInfo
     logger.info("end")
+
 exit(0)
-#fpgaBoard.full_board_allocation(sizes = list(fpga_config['partition_size'].keys()))
-#fpgaBoard.get_complete_partition_resource_report()
-#utils.print_board(fpgaBoard,toFile=True,figloc = args.fig_loc)
-#fpgaBoard.save_allocated_to_file(args.fpga_data_loc)
 
 queries = []
 if(args.recreate):
@@ -137,6 +139,7 @@ else:
     fpga_test =  new_topologias[0]['Nodo7'][0]
     print(fpga_test.get_complete_partition_resource_report())
 
+exit(0)
 
 
 
