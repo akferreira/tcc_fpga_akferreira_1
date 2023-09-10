@@ -3,6 +3,7 @@ from urllib.request import urlopen
 import json
 from collections import Counter,defaultdict
 import random
+from itertools import chain
 from multiprocessing import Lock, Process, Queue, current_process,Pool
 from functools import partial
 import time
@@ -21,11 +22,10 @@ MAX_AREA = {'S':170, 'M': 310, 'L':800}
 class FpgaBoard():
   def __init__(self,fpgaConfig,logger):
     self.dimensions = [0,0]
-    self.rowResourceInfo = dict()
     self.partitionCount = 0
     self.partitionInfo = {}
     self.resourceCount = {'BRAM': 0,'CLB': 0, 'DSP': 0, 'IO': 0}
-    self.freeTiles = []
+    self.freeTiles = [[],[]] #0 right, 1 up
     self.staticRegion = None
     self.config = fpgaConfig
     self.logger = logger
@@ -39,21 +39,20 @@ class FpgaBoard():
     return self.fpgaMatrix.matrix
 
   def load_config(self,fpgaConfig,logger = None):
-    self.rowResourceInfo = fpgaConfig['row_resource_info']
     self.fpgaMatrix = FpgaMatrix(fpgaConfig,logger)
+
+    for row in range(self.fpgaMatrix.height):
+      for column in range(self.fpgaMatrix.width):
+        self.freeTiles[RIGHT].append((column,row))
+
+    for column in range(self.fpgaMatrix.width):
+      for row in range(self.fpgaMatrix.height):
+        self.freeTiles[UP].append((column,row))
+
     self.set_static_region(fpgaConfig['static_region']['coords'])
-    for row in range(self.fpgaMatrix.height+1):
-      for column in range(self.fpgaMatrix.width+1):
-        self.freeTiles.append((column,row))
+
 
     return
-
-  def inc_resource(self,resource):
-    if(self.rowResourceInfo is None):
-      self.logger.error(f"RowResourceInfo não setado")
-      return
-
-    self.resourceCount[resource]+= self.rowResourceInfo[resource]
 
   def set_static_region(self, static_coords):
     '''
@@ -66,6 +65,12 @@ class FpgaBoard():
       upper_left, bottom_right = static_subcoords
       for column in range(upper_left[0], bottom_right[0] + 1):
         for line in range(upper_left[1], bottom_right[1]+1):
+          try:
+            self.freeTiles[0].remove((column,line))
+            self.freeTiles[1].remove((column,line))
+          except ValueError:
+            pass
+
           tile = self.getTile((column, line))
           tile.static = True
           tile.partition = 0
@@ -88,14 +93,13 @@ class FpgaBoard():
       return
     
     size_info = self.config['partition_size'][size]
-    scan_coords = self.fpgaMatrix.create_matrix_loop(start_coord,direction)
+    split_index = self.freeTiles[direction].index(start_coord)
+    scan_coords = self.freeTiles[direction][split_index:] + self.freeTiles[direction][:split_index]
 
     for current_coord in scan_coords:
       if (current_coord is None):
         self.logger.error(f"Can't allocate for {start_coord}. Found a None tile in the iteration coords")
         return
-
-
 
       column_diff, row_diff = abs(current_coord[0]-start_coord[0]),abs(current_coord[1]-start_coord[1])
       if(column_diff*row_diff > MIN_AREA[size]):
@@ -104,43 +108,41 @@ class FpgaBoard():
 
         if (current_resource_count is not None):
           if (self.fpgaMatrix.is_region_border_static(start_coord,current_coord,self.staticRegion) and utils.is_resource_count_sufficient(current_resource_count,size_info)):
-
-            #self.logger.info(f"Succesfully found an available region with {current_resource_count} at [{start_coord};{current_coord}]")
-            #print(f"area {column_diff*row_diff} for {size}")
             return [start_coord, current_coord,current_resource_count]
 
     self.logger.debug(f"No allocation found for {start_coord} that satisfies {size_info}")
     return None
 
-  def allocate_region(self,start_coords,end_coords,region_resource_count):
+  def allocate_region(self,start_coords,end_coords,region_resource_count,resize = False):
     start_coords,end_coords = utils.sort_coords(start_coords,end_coords)
     start_column, start_row = start_coords
     end_column, end_row = end_coords
 
-    self.logger.info(f"Attempting allocation for [({start_column},{start_row});({end_column},{end_row})]")
+    self.logger.verbose(f"Attempting allocation for [({start_column},{start_row});({end_column},{end_row})]")
 
     count = 0
 
     for column in range(start_column,end_column+1):
       for row in range(start_row,end_row+1):
         if(self.getTile((column,row)).isAvailableForAllocation() == False):
-          self.logger.info(f'Unavailable tile found in region at ({column},{row}). Aborting partition {self.partitionCount} allocation')
+          self.logger.verbose(f'Unavailable tile found in region at ({column},{row}). Aborting partition {self.partitionCount} allocation')
           return
     
     for column in range(start_column,end_column+1):
       for row in range(start_row,end_row+1):
-        self.freeTiles.remove((column,row))
+        self.freeTiles[0].remove((column,row))
+        self.freeTiles[1].remove((column,row))
         tile = self.getTile((column,row))
         if(tile.static == False):
           tile.partition = self.partitionCount
 
-    self.logger.info('Succesfully allocated region')
+    self.logger.verbose('Succesfully allocated region')
     self.partitionInfo[self.partitionCount] = {
       'coords': [(start_column,start_row),(end_column,end_row)],
       'resources': region_resource_count
     }
-
-    self.partitionCount+=1
+    if(resize == False):
+      self.partitionCount+=1
     return self.partitionCount
 
   def full_board_allocation(self,sizes,allocation_info):
@@ -150,21 +152,80 @@ class FpgaBoard():
       direction = random.randrange(2)
       size = sizes[ random.randrange(len(sizes)) ]
       allocation_coords = self.fpgaMatrix.create_matrix_loop(random_coords,direction = direction,excludeAllocated=True)
-      self.logger.info(f'Attempting new allocation of {size=}')
+      self.logger.verbose(f'Attempting new allocation of {size=}')
       for i, coords in enumerate(allocation_coords):
         if(allocation_info[coords][size] == False):
           continue
         self.logger.debug(f'Attempt number {i} at {coords}')
-        allocation_region_test = self.find_allocation_region(coords, size)
+        allocation_region_test = self.find_allocation_region(coords, size,direction)
 
         if (allocation_region_test is not None):
-          self.logger.info(f"Succesfully found an available region with {allocation_region_test[2]} at [{allocation_region_test[0]};{ allocation_region_test[1]}]")
+          self.logger.verbose(f"Succesfully found an available region with {allocation_region_test[2]} at [{allocation_region_test[0]};{ allocation_region_test[1]}]")
           self.allocate_region(allocation_region_test[0], allocation_region_test[1], allocation_region_test[2])
           break
       else:
         sizes.remove(size)
 
       full_loop = (len(sizes) == 0)
+
+    return
+
+  def resize_region(self,partition, row_diff, column_diff,direction):
+    try:
+      current_partition = self.partitionInfo[partition]
+      start_column,start_row = current_partition['coords'][0]
+      end_column,end_row = current_partition['coords'][1]
+
+      if(direction == 0):
+        start_column =  max(start_column-column_diff,0)
+        start_row = max(start_row-row_diff,0)
+
+      else:
+        end_column = min(end_column+column_diff,self.fpgaMatrix.width-1)
+        end_row = min(end_row+row_diff,self.fpgaMatrix.height-1)
+
+      for column in range(start_column,end_column+1):
+        for row in range(start_row,end_row+1):
+          tile = self.getTile((column,row))
+          if(tile.isAvailableForAllocation() == False and tile.partition != partition):
+            self.logger.verbose(f'Unavailable tile found in region at ({column},{row}). Aborting partition {partition} resizing')
+            return
+
+      for column in range(start_column,end_column+1):
+        for row in range(start_row,end_row+1):
+          if((column,row) in self.freeTiles[0]):
+            self.freeTiles[0].remove((column,row))
+            self.freeTiles[1].remove((column,row))
+          tile = self.getTile((column,row))
+          tile.partition = partition
+
+      new_resource_count = self.fpgaMatrix.calculate_region_resources((start_column,start_row ),(end_column,end_row))
+
+      if(current_partition['resources'] == new_resource_count):
+        self.logger.verbose(f'Partition {partition} resized, but resource count unchanged')
+      else:
+        self.logger.verbose('Succesfully resized region')
+
+        self.partitionInfo[partition] = {
+        'coords': [(start_column,start_row),(end_column,end_row)],
+        'resources': new_resource_count}
+
+    except KeyError:
+      self.logger.error(f"Partition {partition} not found. Unable to resize")
+
+    return True
+
+  def full_board_resize(self,max_attempts = None, max_row_diff = 1, max_column_diff = 6):
+    if(max_attempts is None):
+      max_attempts = self.partitionCount*4
+
+    for attempt in range(max_attempts):
+      row_diff = random.randrange(0,max_row_diff+1)
+      column_diff = random.randrange(0,max_column_diff+1)
+      partition = random.randrange(1,self.partitionCount)
+      direction = direction = random.randrange(2)
+
+      self.resize_region(partition, row_diff, column_diff,direction)
 
     return
 

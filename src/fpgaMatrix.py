@@ -19,8 +19,13 @@ class FpgaMatrix:
         self.logger = logger
         self.matrix = [[FpgaTile(resourceType,column,row,logger) for column,resourceType in enumerate(fpgaConfig['columns'])] for row in range(fpgaConfig['row_count'])]
         self.rowResourceInfo = fpgaConfig['row_resource_info']
+        self.rowResources = []
         self.height = len(self.matrix)
         self.width = len(self.matrix[0])
+
+        for row in self.matrix:
+            self.rowResources.append([tile.resource for tile in row])
+
         
     def getAllTiles(self):
         tiles = []
@@ -190,26 +195,20 @@ class FpgaMatrix:
             if(overlap):
                 return
 
-
-
-        resourceCount = {'BRAM': 0,'CLB': 0, 'DSP': 0, 'IO': 0}
+        #resourceCounter = Counter()
+        resourceCount = {'CLB': 0,'BRAM':0, 'IO':0, 'DSP': 0}
 
         for row in range(start_row, end_row + 1):
-            try:
-                row_tiles = self.get_tile_range_from_row(row,(start_column,end_column))
-                for currentTile in row_tiles:
-                    resource = currentTile.resource
-                    resourceCount[resource] += 1
-
-
-            except IndexError as Error:
-                    self.logger.error(f"Cannot calculate resources for region {start_coords}::{end_coords}. Out of bounds")
-                    return
+            #resourceCounter += Counter(self.rowResources[row][start_column:end_column+1])
+            for resource in self.rowResources[row][start_column:end_column+1]:
+                resourceCount[resource]+=1
 
         for resource in resourceCount:
             resourceCount[resource] *= self.rowResourceInfo[resource]
 
+
         return resourceCount
+        return resourceCounter
 
     def get_all_edge_static_coords(self,coords,direction = RIGHT):
         scan_coords_temp = self.create_matrix_loop(coords,direction,excludeAllocated = False)
