@@ -45,13 +45,37 @@ def child_region_allocation(fpga,partitions_parent1, partitions_parent2):
     #print(f'final {len(partitions_parent1)}.{len(partitions_parent2)}')
     return fpga,partitions_parent1,partitions_parent2
 
+def initialize_child_topology(topology_p1,topology_p2,child_id,fpga_config,logger):
+    child_topology = defaultdict(lambda: defaultdict(dict))
+    partititons_parents = [[],[]]
+
+    child_topology['topology_id'] = child_id
+    child_topology['topology_score'] = None
+    child_topology['generation'] = topology_p1['generation']+1
+
+    for node_id,node in topology_p1['topology_data'].items():
+        child_topology['topology_data'][node_id] = {'FPGA': dict(), 'Links': node['Links']}
+
+        for fpga_id,fpga in node['FPGA'].items():
+            child_topology['topology_data'][node_id]['FPGA'][fpga_id] = FpgaBoard(fpga_config,logger)
+
+            for partition in fpga['partitions'].values():
+                partititons_parents[0].append(partition)
+
+    for node_id,node in topology_p2['topology_data'].items():
+        for fpga_id,fpga in node['FPGA'].items():
+            for partition in fpga['partitions'].values():
+                partititons_parents[1].append(partition)
+
+    return child_topology,partititons_parents
+
 def initialize_children_topology(fpgas,links, child_id,fpga_config,logger):
     """
     Entrada :
     links -> lista dos links de cada nodo de cada topologia
     """
     child_topology = defaultdict(lambda: defaultdict(dict))
-    partititon_topology = defaultdict(list)
+    partititon_topology = [[],[]]
     child_topology['topology_id'] = child_id
 
     for link in links:
@@ -69,7 +93,7 @@ def initialize_children_topology(fpgas,links, child_id,fpga_config,logger):
         node_id = fpga['node_id']
         fpga_id = fpga['fpga_id']
 
-        child_topology['generation'] = fpga['generation']
+        child_topology['generation'] = fpga['generation']+1
         child_topology['topology_score'] = None
 
         for partition in fpga['partitions'].values():
@@ -113,16 +137,17 @@ def save_topology_db(topology,topology_collection):
     db_topology = defaultdict(lambda: defaultdict(dict))
     for node_id,node in topology['topology_data'].items():
         db_topology['topology_data'][node_id]['FPGA'] = dict()
+        db_topology['topology_data'][node_id]['Links'] = topology['topology_data'][node_id]['Links']
+
         for fpga_id,fpga in node['FPGA'].items():
             if(fpga):
                 db_topology['topology_data'][node_id]['FPGA'][str(fpga_id)] = fpga.get_db_dict()
-                db_topology['topology_data'][node_id]['Links'] = topology['topology_data'][node_id]['Links']
 
     db_topology['topology_id'] = topology['topology_id']
 
     db_topology['generation'] = topology['generation']
     db_topology['topology_score'] = topology['topology_score']
-    topology_collection.replace_one({'topology_id':topology['topology_id']},db_topology,upsert=True)
+    topology_collection.replace_one({'topology_id':topology['topology_id'],'generation': db_topology['generation']},db_topology,upsert=True)
 
 def evaluate_topology(topology):
     runs = 100

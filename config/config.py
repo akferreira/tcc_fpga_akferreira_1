@@ -10,6 +10,8 @@ def argparser():
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('-s', '--silent', action='store_true')
     parser.add_argument('--recreate', action='store',type=int)
+    parser.add_argument('--start-generation', action='store',type=int,default = 0)
+    parser.add_argument('--elite', action='store',dest= 'elite_len',type=int,default = 0)
     parser.add_argument('--fpga-config-loc',dest= 'fpga_config_filename',default = 'fpga.json')
     parser.add_argument('--partition-config-loc',dest = 'partition_config_filename',default = 'partition.json')
     parser.add_argument('--log-loc',dest='log_loc',default = 'log.json')
