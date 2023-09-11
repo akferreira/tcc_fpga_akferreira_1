@@ -166,3 +166,26 @@ def evaluate_topology(topology):
     #topology['topology_score'] = req_qtd/(req*runs)
 
     return req_qtd/(req*runs)
+
+def format_topology_db(topology):
+    db_topology = defaultdict(lambda: defaultdict(dict))
+    for node_id,node in topology['topology_data'].items():
+        db_topology['topology_data'][node_id]['FPGA'] = dict()
+        db_topology['topology_data'][node_id]['Links'] = topology['topology_data'][node_id]['Links']
+
+        for fpga_id,fpga in node['FPGA'].items():
+            if(fpga):
+                db_topology['topology_data'][node_id]['FPGA'][str(fpga_id)] = fpga.get_db_dict()
+
+    db_topology['topology_id'] = topology['topology_id']
+
+    db_topology['generation'] = topology['generation']
+    db_topology['topology_score'] = topology['topology_score']
+    return db_topology
+
+def create_child_topology(topology_p1,topology_p2,child_id,fpga_config,logger,sizes,allocation_info,full_alloc_rate,resize_rate):
+     child_topology,partititon_topology = initialize_children_topology(fpgas,links, child_id,fpga_config,logger)
+     child_topology = populate_child_topology(child_topology,partititon_topology[0],partititon_topology[1],sizes,allocation_info,args.full_alloc_rate,args.resize_rate)
+     child_topology['topology_score'] = evaluate_topology(child_topology)
+
+    return

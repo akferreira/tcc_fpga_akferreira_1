@@ -93,8 +93,6 @@ if(args.recreate):
 
     logger.info("Geração inicial de redes")
 
-    queries = []
-    link_queries = []
     topology_queries = []
     topology_quantity = args.recreate
 
@@ -106,8 +104,6 @@ if(args.recreate):
 
             with tqdm(total = len(topology.keys()),desc = f'Geração de nodos topologia {i}',bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}',ascii = ' #',position = 1, leave=False) as node_pbar:
                 for node_id,network_node in topology.items():
-
-                    link_node = {'topology_id':i,'node_id': node_id,'Links': network_node['Links']}
                     topologia['topology_data'][node_id] = None
                     topologia['topology_data'][node_id] = {'FPGA': dict(),'Links': network_node['Links']}
                     temp_topologia['topology_data'][node_id] = None
@@ -140,9 +136,6 @@ if(args.recreate):
 
     logger.info("Atualizando banco de dados")
     topology_collection.bulk_write(topology_queries)
-    topology_fpga_info.bulk_write(queries)
-    topology_link_info.bulk_write(link_queries)
-
 
 else:
     allocation_info_temp = allocation_possibility.find()
