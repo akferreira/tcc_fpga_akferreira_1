@@ -206,7 +206,7 @@ def create_child_topology_db(topology_p1,topology_p2,child_id,fpga_config,logger
 
     return ReplaceOne({'topology_id':child_topology_db['topology_id'],'generation': child_topology_db['generation']},dict(child_topology_db),upsert=True)
 
-def create_topology_db_from_json(json_topology,topology_id):
+def create_topology_db_from_json(json_topology,fpga_config,logger,allocation_info,topology_id):
     topologia = {'topology_id': topology_id, 'generation': 0, 'topology_data': dict(), 'topology_score': None}
     temp_topologia = {'topology_data': dict()} #para calculo de fitness
     for node_id, network_node in json_topology.items():
