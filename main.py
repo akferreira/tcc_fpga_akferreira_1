@@ -5,7 +5,7 @@ from multiprocessing import Pool,Lock
 from pathlib import Path
 from tqdm import tqdm
 from random import random,choices,shuffle
-from time import time_ns
+from hashlib import md5
 from src import utils,network
 from src.fpgaBoard import FpgaBoard
 from config import config
@@ -20,10 +20,6 @@ fpga_config_filename = 'fpga.json'
 partition_config_filename = 'partition.json'
 fpga_topology_filename = 'topologia.json'
 logfile_filename = 'run.log'
-coord_X = 0
-coord_Y = 1
-matrix_line = 0
-matrix_column = 1
 node_id_regex =  re.compile('Nodo(\d+)', re.IGNORECASE)
 
 DB_CONNECTION_STRING = "mongodb://localhost:27017"
@@ -32,9 +28,6 @@ DB_NAME = "tcc"
 def get_database():
     client = MongoClient(DB_CONNECTION_STRING)
     return client[DB_NAME]
-
-def test(topology_p1,topology_p2,child_id,fpga_config,logger,sizes,allocation_info,full_alloc_rate,resize_rate,pbar):
-    return f"{child_id}=. p1 {topology_p1['topology_id']}| p2 {topology_p2['topology_id']}"
 
 
 
@@ -46,17 +39,35 @@ log_dir = os.path.join(Path(__file__).parent,'logs')
 
 fpga_config = config.load_fpga_config(config_dir, args.fpga_config_filename,args.partition_config_filename)
 topology = utils.load_topology(os.path.join(config_dir,args.topology_filename))
+
 topologias = []
 
-tcc_db = get_database()
-topology_collection = tcc_db['topology']
-topology_fpga_info = tcc_db['fpga_info']
-topology_link_info = tcc_db['link_info']
-allocation_possibility = tcc_db['allocation_possibility']
-region_resource_data = tcc_db['region_resource_data']
+
 
 if __name__ == '__main__':
-    logger.info("start")
+    logger.info("Iniciando")
+
+    tcc_db = get_database()
+    topology_collection = tcc_db['topology']
+    allocation_possibility = tcc_db['allocation_possibility']
+
+
+
+    if(args.export_topology):
+        allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
+        allocation_info = defaultdict(lambda: defaultdict(dict)) # a alocação é possível ou não
+
+        for entry in allocation_info_cursor:
+            allocation_info[(entry['column'],entry['row'])][entry['size']] = entry['possible']
+
+        topology_db_print = topology_collection.find_one({'generation':130, 'topology_id':110})
+        topology_print = network.create_topology_fpgaboard_from_db(topology_db_print,fpga_config,logger,allocation_info)
+        utils.print_board(topology_print['Nodo0']['FPGA']['0'],toFile=True,figloc='testGeneration1.png')
+        print(topology_print)
+
+
+
+        exit(0)
 
     queries = []
     if(args.recreate):
@@ -64,7 +75,10 @@ if __name__ == '__main__':
         scan_coords = fpgaBoard.fpgaMatrix.create_matrix_loop((0,0))
         queries = []
         total_len = len(scan_coords) * len(fpga_config['partition_size'].keys())
-        count = 0
+
+        topology_collection.drop()
+        allocation_possibility.drop()
+
 
         #faz uma varredura em todas as coordenadas não estáticas e verifica se é possível alocar uma região para cada tamanho disponível. Armazena os resultados no banco de dados
         coord_pbar = tqdm(total = total_len,ascii = ' #',bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}')
@@ -77,7 +91,7 @@ if __name__ == '__main__':
                 queries.append(ReplaceOne({'modelo': 'G', 'row': coord[1], 'column': coord[0],'size':size}, allocation_info, upsert=True))
 
         coord_pbar.close()
-        logger.info("Atualizando banco de dados")
+        logger.info("Atualizando banco de dados para possibilidade de alocações")
         allocation_possibility.bulk_write(queries)
 
         #formata entradas de allocation possiblity do banco de dados para uma estrutura em dict
@@ -102,27 +116,32 @@ if __name__ == '__main__':
 
         recreate_pool.close()
         recreate_pool.join()
-        logger.info("Atualizando banco de dados")
+        logger.info("Atualizando banco de dados para primeira geração de topologias")
         topology_collection.bulk_write(topology_queries)
 
     else:
-        allocation_info_temp = allocation_possibility.find()
-        allocation_info = defaultdict(lambda: defaultdict(dict))
+        allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
+        allocation_info = defaultdict(lambda: defaultdict(dict)) # a alocação é possível ou não
 
-        for entry in allocation_info_temp:
+        for entry in allocation_info_cursor:
             allocation_info[(entry['column'],entry['row'])][entry['size']] = entry['possible']
-        logger.info("start")
 
-        elite_len = 50
-        children_len = (200-elite_len)
-        logger.info(f"Criando gerações {args.start_generation+1} a {args.start_generation+args.iterations+1}")
+        logger.info("Iniciando algortimo genético")
+
+        total_len =  topology_collection.count_documents({'generation': args.start_generation})
+        elite_len = args.elite
+
+        if(args.elitep):
+            elite_len = total_len*args.elitep
+
+        children_len = total_len-elite_len
+        logger.info(f"Criando gerações {args.start_generation+1} a {args.start_generation+args.iterations}")
 
         for generation in range( args.start_generation, args.start_generation+args.iterations):
-            logger.info(f"Criando geração {generation+1}")
-            generation_start = generation
+            logger.info(f"Criando geração {generation+1} de {args.start_generation+args.iterations}")
             sizes = list(fpga_config['partition_size'].keys())
-            topologia_cursor = topology_collection.find({'generation': generation_start}).sort([('topology_id',1)])
-            topologia_elite_cursor = topology_collection.find({'generation': generation_start}).sort([('topology_score',-1)]).limit(elite_len)
+            topologia_cursor = topology_collection.find({'generation': generation}).sort([('topology_id',1)])
+            topologia_elite_cursor = topology_collection.find({'generation': generation}).sort([('topology_score',-1)]).limit(elite_len)
             elite_indexes = [topology['topology_id'] for topology in topologia_elite_cursor]
             non_elite_indexes = []
 
@@ -136,8 +155,7 @@ if __name__ == '__main__':
                 topologies_index.append(topology['topology_id'])
                 topologies_scores.append(topology['topology_score'])
 
-            logger.info(f"Elite igual a {elite_len}. Gerando redes para os {children_len} individuos restantes")
-            print(len(elite_indexes))
+            logger.info(f"Elite igual a {elite_len}. Gerando redes para os {children_len} individuos restantes de {total_len}")
 
             topologies_choices = choices(topologies_index,weights = topologies_scores, k = 2*children_len)
             queries = []
@@ -149,8 +167,8 @@ if __name__ == '__main__':
                 ga_args.append((dict(parent_topologias[p1]),dict(parent_topologias[p2]),child_id,fpga_config,logger,sizes,dict(allocation_info),args.full_alloc_rate,args.resize_rate))
 
 
-            pool = Pool(os.cpu_count()-1)
-            with tqdm(total=150, desc="Creating children networks", ascii=" *",bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}') as pbar:
+            pool = Pool(args.cpu)
+            with tqdm(total=children_len, desc="Gerando redes filhas", ascii=" *",bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}') as pbar:
                 for result in pool.imap_unordered(network.create_child_topology_db_unpacker,ga_args):
                     queries.append(result)
                     pbar.update()
@@ -164,11 +182,9 @@ if __name__ == '__main__':
                 query = ReplaceOne({'topology_id':elite_topology['topology_id'],'generation': elite_topology['generation']},elite_topology,upsert=True)
                 queries.append(query)
 
-            logger.info("Atualizando banco de dados")
+            logger.info(f"Atualizando banco de dados para geração {generation+1}")
             topology_collection.bulk_write(queries)
-            logger.info("end")
 
-    logger.info("end")
-    exit(0)
+        logger.info("Fim")
 
 

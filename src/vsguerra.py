@@ -11,6 +11,11 @@ import subprocess
 import re
 node_id_regex =  re.compile('Nodo(\d+)', re.IGNORECASE)
 
+"""
+SOURCE: https://github.com/VSGuerraa/Projeto-Mestrado
+Código originalmente desenvolvido por VICTOR SBERSE GUERRA, modificado e adaptado a esse projeto.
+"""
+
 @dataclass
 class Function:
     name_func:str

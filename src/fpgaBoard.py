@@ -215,7 +215,7 @@ class FpgaBoard():
 
     return True
 
-  def full_board_resize(self,max_attempts = None, max_row_diff = 1, max_column_diff = 6):
+  def full_board_resize(self,max_attempts = 10, max_row_diff = 1, max_column_diff = 6):
     if(max_attempts is None):
       max_attempts = self.partitionCount*4
 
@@ -223,7 +223,7 @@ class FpgaBoard():
       row_diff = random.randrange(0,max_row_diff+1)
       column_diff = random.randrange(0,max_column_diff+1)
       partition = random.randrange(1,self.partitionCount)
-      direction = direction = random.randrange(2)
+      direction = random.randrange(2)
 
       self.resize_region(partition, row_diff, column_diff,direction)
 

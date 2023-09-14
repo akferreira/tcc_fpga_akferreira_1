@@ -7,6 +7,7 @@ from collections import defaultdict
 from random import shuffle,random
 import json,os
 from tqdm import tqdm
+from copy import deepcopy
 
 
 def child_region_allocation(fpga,partitions_parent1, partitions_parent2):
@@ -71,43 +72,6 @@ def initialize_child_topology(topology_p1,topology_p2,child_id,fpga_config,logge
                 partititons_parents[1].append(partition)
 
     return child_topology,partititons_parents
-
-def initialize_children_topology(fpgas,links, child_id,fpga_config,logger):
-    """
-    Entrada :
-    links -> lista dos links de cada nodo de cada topologia
-    """
-    child_topology = defaultdict(lambda: defaultdict(dict))
-    partititon_topology = [[],[]]
-    child_topology['topology_id'] = child_id
-
-    for link in links:
-        topology_id = link['topology_id']
-        node_id = link['node_id']
-
-        #Cria um nodo na topologia filha com os links do nodo correspondente na topologia pai
-        if(topology_id == 0):
-            child_topology['topology_data'][node_id]['Links'] = link['Links']
-            child_topology['topology_data'][node_id]['FPGA'] = {}
-
-
-    for fpga in fpgas:
-        topology_id = fpga['topology_id']
-        node_id = fpga['node_id']
-        fpga_id = fpga['fpga_id']
-
-        child_topology['generation'] = fpga['generation']+1
-        child_topology['topology_score'] = None
-
-        for partition in fpga['partitions'].values():
-            start_coords,end_coords = partition['coords']
-            partititon_topology[topology_id%2].append(partition)
-
-        if(topology_id  % 2):
-            child_topology['topology_data'][node_id]['FPGA'][fpga_id]  = FpgaBoard(fpga_config,logger)
-
-    return child_topology,partititon_topology
-
 def populate_child_topology(topology,partititon_p1,partititon_p2,sizes,allocation_info,full_aloc_rate,resize_rate):
     for node_id,node in topology['topology_data'].items():
         if ('FPGA' in node):
@@ -116,7 +80,7 @@ def populate_child_topology(topology,partititon_p1,partititon_p2,sizes,allocatio
                 if(random() <= full_aloc_rate):
                     topology['topology_data'][node_id]['FPGA'][fpga_id].full_board_allocation(sizes[:],allocation_info)
                 if(random() <= resize_rate):
-                    topology['topology_data'][node_id]['FPGA'][fpga_id].full_board_resize()
+                    topology['topology_data'][node_id]['FPGA'][fpga_id].full_board_resize(200,1,10)
 
         else:
             topology[node_id]['FPGA'] = []
@@ -230,3 +194,27 @@ def create_topology_db_from_json(json_topology,fpga_config,logger,allocation_inf
 
     topologia['topology_score'] = evaluate_topology(temp_topologia)
     return ReplaceOne({'topology_id': topology_id, 'generation': 0}, topologia, upsert=True)
+
+def create_topology_fpgaboard_from_db(db_topology,fpga_config,logger,allocation_info):
+    topologia = {}
+    for node_id, network_node in db_topology['topology_data'].items():
+        topologia[node_id] = None
+        topologia[node_id] = {'FPGA': dict(), 'Links': network_node['Links']}
+
+        len_fpgas = len(network_node['FPGA'])
+
+        if (len_fpgas > 0):
+            for pos, fpga in network_node['FPGA'].items():
+                # Cria FPGA zerado e faz uma alocação aleatória completa
+                fpgaBoard = FpgaBoard(fpga_config, logger)
+
+                for partition in fpga['partitions'].values():
+                    start_coords, end_coords = partition['coords']
+                    fpgaBoard.allocate_region(start_coords, end_coords, partition['resources'])
+
+                topologia[node_id]['FPGA'][pos] = fpgaBoard
+
+    return topologia
+
+def export_topology_to_files(topology):
+    return

@@ -1,6 +1,7 @@
 # @title Utils
 import matplotlib.pyplot as plt
 from urllib.request import urlopen
+from hashlib import md5
 import json
 import random
 import numpy as np
@@ -102,7 +103,6 @@ def print_board(fpgaBoard, toFile=False, figloc='FpgaAllocation.png'):
 
 def load_topology(path):
     topology = load_json_config_file(path)
-
     fpga_topology = {}
     for entry in topology:
         nodo,data = list(entry.items())[0]
