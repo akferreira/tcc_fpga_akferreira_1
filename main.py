@@ -1,12 +1,12 @@
 from urllib.request import urlopen
-import json,os,re
-from collections import Counter,defaultdict
+import json,os,re,csv
+from collections import Counter,defaultdict,OrderedDict
 from multiprocessing import Pool,Lock
 from pathlib import Path
 from tqdm import tqdm
 from random import random,choices,shuffle
-from hashlib import md5
-from src import utils,network
+import pandas as pd
+from src import utils,network,vsguerra,ga
 from src.fpgaBoard import FpgaBoard
 from config import config
 from pymongo import MongoClient,ReplaceOne,ASCENDING,DESCENDING
@@ -38,7 +38,7 @@ config_dir = os.path.join(Path(__file__).parent,'config')
 log_dir = os.path.join(Path(__file__).parent,'logs')
 
 fpga_config = config.load_fpga_config(config_dir, args.fpga_config_filename,args.partition_config_filename)
-topology = utils.load_topology(os.path.join(config_dir,args.topology_filename))
+
 
 topologias = []
 
@@ -52,76 +52,88 @@ if __name__ == '__main__':
     allocation_possibility = tcc_db['allocation_possibility']
 
 
+    if(args.generate_base_topologies):
+        topology_per_node_count = 3
+        node_range = [i for i in range(10,41,5)]
+        link_range = [(node_count*1.2,node_count*1.3) for node_count in node_range]
 
-    if(args.export_topology):
+        for node_count,link_interval in zip(node_range,link_range):
+            i = 0
+            while(i < topology_per_node_count):
+                for link_count in range(int(link_interval[0]), int(link_interval[1]+1)):
+                    if(i >= topology_per_node_count):
+                        break
+
+                    base_topology_dir = os.path.join(args.topology_dir,f"topology_N{node_count}_{i}.json")
+                    base_topology = vsguerra.gerador_Topologia(node_count,link_count)
+                    utils.save_json_file(base_topology,base_topology_dir)
+                    i+=1
+
+        exit(0)
+
+    elif(args.testing):
+        POPSIZES = [100,200,300,400,500]
+        ELITE_SIZES = [0.1,0.2]
+        MUTATION_LIST = [(i/20, ((i%2)+1) * 0.4) for i in range(4)] #range 20
+        grupos_teste = {}
+        id_count = 0
+        for population in POPSIZES:
+            for elite_p in ELITE_SIZES:
+                grupos_teste[id_count] = {'population': population, 'elite_p': elite_p,'mutation_values': []}
+                id_count+=1
+
+        for mutations in MUTATION_LIST:
+            for grupo_teste in grupos_teste.values():
+                grupo_teste['mutation_values'].append( mutations)
+
+
+        ga_args = vars(args)
+        best_params = {}
+        for id,grupo_teste in grupos_teste.items():
+            print(f"{id}")
+            scores = {}
+            for (realloc,resize) in grupo_teste['mutation_values']:
+                print((realloc,resize))
+                ga_args['realloc_rate'] = realloc
+                ga_args['resize_rate'] = resize
+                ga_args['elitep'] = grupo_teste['elite_p']
+                ga_args['recreate'] = grupo_teste['population']
+                best_score = ga.run_ga_on_new_population(ga_args,fpga_config,logger,topology_collection,allocation_possibility)
+                scores[(realloc,resize)] = best_score
+
+            best_score = max(scores.values())
+            best_mutation = max(scores,key=scores.get)
+            grupo_teste['best_mutation_values'] = best_mutation
+            grupo_teste['best_score'] = best_score
+
+            print(f"{id}.{scores=}")
+
+        print(grupos_teste)
+
+
+    elif(args.export_topology):
         allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
         allocation_info = defaultdict(lambda: defaultdict(dict)) # a alocação é possível ou não
 
         for entry in allocation_info_cursor:
             allocation_info[(entry['column'],entry['row'])][entry['size']] = entry['possible']
 
-        topology_db_print = topology_collection.find_one({'generation':130, 'topology_id':110})
+        topology_db_print = topology_collection.find_one({'generation':50, 'topology_id':110})
         topology_print = network.create_topology_fpgaboard_from_db(topology_db_print,fpga_config,logger,allocation_info)
         utils.print_board(topology_print['Nodo0']['FPGA']['0'],toFile=True,figloc='testGeneration1.png')
         print(topology_print)
 
 
-
+    elif(args.recreate):
+        ga.create_new_population( vars(args),fpga_config,logger,topology_collection,allocation_possibility)
         exit(0)
 
-    queries = []
-    if(args.recreate):
-        fpgaBoard = FpgaBoard(fpga_config,logger)
-        scan_coords = fpgaBoard.fpgaMatrix.create_matrix_loop((0,0))
-        queries = []
-        total_len = len(scan_coords) * len(fpga_config['partition_size'].keys())
-
-        topology_collection.drop()
-        allocation_possibility.drop()
-
-
-        #faz uma varredura em todas as coordenadas não estáticas e verifica se é possível alocar uma região para cada tamanho disponível. Armazena os resultados no banco de dados
-        coord_pbar = tqdm(total = total_len,ascii = ' #',bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}')
-        coord_pbar.set_description('Coordenadas verificadas para alocação')
-        for coord in scan_coords:
-            for size in fpga_config['partition_size']:
-                search_result = fpgaBoard.find_allocation_region(coord,size)
-                allocation_info = {'modelo': 'G', 'row': coord[1], 'column': coord[0],'size':size,'possible': search_result is not None}
-                coord_pbar.update(1)
-                queries.append(ReplaceOne({'modelo': 'G', 'row': coord[1], 'column': coord[0],'size':size}, allocation_info, upsert=True))
-
-        coord_pbar.close()
-        logger.info("Atualizando banco de dados para possibilidade de alocações")
-        allocation_possibility.bulk_write(queries)
-
-        #formata entradas de allocation possiblity do banco de dados para uma estrutura em dict
-        allocation_info_temp = allocation_possibility.find()
-        allocation_info = defaultdict(lambda: defaultdict(dict))
-        for entry in allocation_info_temp:
-            allocation_info[(entry['column'],entry['row'])][entry['size']] = entry['possible']
-
-
-
-        logger.info("Geração inicial de redes")
-
-        topology_queries = []
-        topology_quantity = args.recreate
-        recreate_pool = Pool(os.cpu_count() - 1)
-        topology_creation_func = partial(network.create_topology_db_from_json,topology,fpga_config,logger,dict(allocation_info))
-        with tqdm(total=topology_quantity, desc='Geração de redes', bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}',ascii=' #', position=0) as topology_pbar:
-            for result in recreate_pool.imap_unordered(topology_creation_func,[topology_id for topology_id in range(topology_quantity)]):
-                topology_queries.append(result)
-                topology_pbar.update()
-
-
-        recreate_pool.close()
-        recreate_pool.join()
-        logger.info("Atualizando banco de dados para primeira geração de topologias")
-        topology_collection.bulk_write(topology_queries)
-
-    else:
+    elif(args.ga):
+        best = ga.run_ga_on_created_population(vars(args),fpga_config,logger,topology_collection,allocation_possibility)
+        exit(0)
         allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
         allocation_info = defaultdict(lambda: defaultdict(dict)) # a alocação é possível ou não
+
 
         for entry in allocation_info_cursor:
             allocation_info[(entry['column'],entry['row'])][entry['size']] = entry['possible']
@@ -164,7 +176,7 @@ if __name__ == '__main__':
                 p1, p2 = topologies_choices[i], topologies_choices[i + 1]
                 pos = int(i / 2)
                 child_id = non_elite_indexes[pos]
-                ga_args.append((dict(parent_topologias[p1]),dict(parent_topologias[p2]),child_id,fpga_config,logger,sizes,dict(allocation_info),args.full_alloc_rate,args.resize_rate))
+                ga_args.append((dict(parent_topologias[p1]),dict(parent_topologias[p2]),child_id,fpga_config,logger,sizes,dict(allocation_info),args.realloc_rate,args.resize_rate))
 
 
             pool = Pool(args.cpu)
@@ -185,6 +197,14 @@ if __name__ == '__main__':
             logger.info(f"Atualizando banco de dados para geração {generation+1}")
             topology_collection.bulk_write(queries)
 
+        csv_path = os.path.join(args.log_dir,'topology_stats')
+        #csv_filename = f"p{total_len}_{(args.topology_filename).replace('.json','')}_realloc{int(args.realloc_rate*100)}_res{int(args.resize_rate*100)}_elite{elite_len}.csv"
+        csv_filename = "results.csv"
+        utils.save_current_topology_stats_to_csv(topology_collection,csv_path,csv_filename,args.realloc_rate,args.resize_rate,elite_len)
+
         logger.info("Fim")
+        exit(0)
+    else:
+        logger.info("Nenhuma opção")
 
 

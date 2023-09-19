@@ -1,3 +1,5 @@
 matplotlib
+pymongo
 tqdm
-
+networkx
+numpy

@@ -1,10 +1,11 @@
 # @title Utils
 import matplotlib.pyplot as plt
 from urllib.request import urlopen
-from hashlib import md5
+import os
 import json
 import random
 import numpy as np
+import pandas as pd
 
 
 class AllocationError():
@@ -62,9 +63,37 @@ def load_json_config_file(path):
         return config
 
 def save_json_file(json_output,path):
+    file_output = json.dumps(json_output, indent=4)
     with open(path,'w') as json_file:
-        json_file.write(json_output)
+        json_file.write(file_output)
     return
+
+
+
+def save_current_topology_stats_to_csv(topology_collection,path,topology_filename,realloc_rate,resize_rate,elite):
+    aggregation_query = [
+        {'$match': {}},
+        {'$group':
+            {'_id': '$generation','minScore': {'$min': '$topology_score'},'maxScore': {'$max': '$topology_score'},
+             'nodes': {'$first': '$$ROOT.node_count'}, 'links': {'$first': '$$ROOT.link_count'},
+             'avgScore': {'$avg': '$topology_score'},'population': {'$sum': 1}} },
+        {
+            '$addFields': {'avgScore': {'$round': ['$avgScore', 4]}}},
+        {'$sort': {'_id': 1}},
+        {'$project': {'_id': 0,'generation': '$_id','minScore': 1,'maxScore': 1,'avgScore': 1,'population': 1,'nodes':1,'links':1}}
+    ]
+
+    result = list(topology_collection.aggregate(aggregation_query))
+    header = ['nodes','links','generation','population','realloc_rate','resize_rate','elite','maxScore']
+    csv_path = os.path.join(path,topology_filename)
+    stats_df = pd.DataFrame.from_records([result[-1]])
+    stats_df['realloc_rate'] = realloc_rate
+    stats_df['resize_rate'] = resize_rate
+    stats_df['elite'] = elite
+    stats_df = stats_df[header]
+    header = None if os.path.isfile(csv_path) else header
+    stats_df.to_csv(csv_path, sep=';', decimal=',', header=header, index=False,mode='a')
+    return result[-1]['maxScore']
 
 
 def is_resource_count_sufficient(resources1, resources2):

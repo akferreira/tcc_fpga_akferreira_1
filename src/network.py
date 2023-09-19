@@ -56,6 +56,8 @@ def initialize_child_topology(topology_p1,topology_p2,child_id,fpga_config,logge
     child_topology['topology_id'] = child_id
     child_topology['topology_score'] = None
     child_topology['generation'] = topology_p1['generation']+1
+    child_topology['node_count'] = topology_p1['node_count']
+    child_topology['link_count'] = topology_p1['link_count']
 
     for node_id,node in topology_p1['topology_data'].items():
         child_topology['topology_data'][node_id] = {'FPGA': dict(), 'Links': node['Links']}
@@ -96,8 +98,7 @@ def save_topology_to_file(topology,path):
             if(fpga):
                 output[node_id]['FPGA'].append(fpga.get_complete_partition_resource_report() )
 
-    json_output = json.dumps(output, indent=4)
-    utils.save_json_file(json_output,path)
+    utils.save_json_file(output,path)
     return
 
 def save_topology_db(topology,topology_collection):
@@ -117,9 +118,13 @@ def save_topology_db(topology,topology_collection):
     topology_collection.replace_one({'topology_id':topology['topology_id'],'generation': db_topology['generation']},db_topology,upsert=True)
 
 def evaluate_topology(topology):
-    runs = 100
-    req = 50
     nodos_G = len(topology['topology_data'].keys())
+    fpga_count = 0
+    for node_id,node in topology['topology_data'].items():
+        fpga_count += len(node['FPGA'])
+
+    runs = 30
+    req = int(fpga_count*4.5)
     req_qtd = 0
     lista_requisicoes = [ vsguerra.ler_Requisicoes(vsguerra.gerador_Req(nodos_G,req,topology)) for i in range(runs)]
 
@@ -136,6 +141,7 @@ def evaluate_topology(topology):
 
 def format_topology_db(topology):
     db_topology = defaultdict(lambda: defaultdict(dict))
+
     for node_id,node in topology['topology_data'].items():
         db_topology['topology_data'][node_id]['FPGA'] = dict()
         db_topology['topology_data'][node_id]['Links'] = topology['topology_data'][node_id]['Links']
@@ -145,39 +151,42 @@ def format_topology_db(topology):
                 db_topology['topology_data'][node_id]['FPGA'][str(fpga_id)] = fpga.get_db_dict()
 
     db_topology['topology_id'] = topology['topology_id']
-
+    db_topology['node_count'] = topology['node_count']
+    db_topology['link_count'] = topology['link_count']
     db_topology['generation'] = topology['generation']
     db_topology['topology_score'] = topology['topology_score']
     return db_topology
 
-def create_child_topology(topology_p1,topology_p2,child_id,fpga_config,logger,sizes,allocation_info,full_alloc_rate,resize_rate):
+def create_child_topology(topology_p1,topology_p2,child_id,fpga_config,logger,sizes,allocation_info,realloc_rate,resize_rate):
     child_topology,partititon_topology = initialize_child_topology(topology_p1,topology_p2,child_id,fpga_config,logger)
-    child_topology = populate_child_topology(child_topology,partititon_topology[0],partititon_topology[1],sizes,allocation_info,full_alloc_rate,resize_rate)
+    child_topology = populate_child_topology(child_topology,partititon_topology[0],partititon_topology[1],sizes,allocation_info,realloc_rate,resize_rate)
     child_topology['topology_score'] = evaluate_topology(child_topology)
 
     return child_topology
 
 def create_child_topology_db_unpacker(args):
-    topology_p1, topology_p2, child_id, fpga_config, logger, sizes, allocation_info, full_alloc_rate, resize_rate = args
-    return create_child_topology_db(topology_p1,topology_p2,child_id,fpga_config,logger,sizes,allocation_info,full_alloc_rate,resize_rate)
+    topology_p1, topology_p2, child_id, fpga_config, logger, sizes, allocation_info, realloc_rate, resize_rate = args
+    return create_child_topology_db(topology_p1,topology_p2,child_id,fpga_config,logger,sizes,allocation_info,realloc_rate,resize_rate)
 
 
-def create_child_topology_db(topology_p1,topology_p2,child_id,fpga_config,logger,sizes,allocation_info,full_alloc_rate,resize_rate):
+def create_child_topology_db(topology_p1,topology_p2,child_id,fpga_config,logger,sizes,allocation_info,realloc_rate,resize_rate):
     #print("hello")
-    child_topology =  create_child_topology(topology_p1,topology_p2,child_id,fpga_config,logger,sizes,allocation_info,full_alloc_rate,resize_rate)
+    child_topology =  create_child_topology(topology_p1,topology_p2,child_id,fpga_config,logger,sizes,allocation_info,realloc_rate,resize_rate)
     child_topology_db = format_topology_db(child_topology)
     #print("goodbye")
 
     return ReplaceOne({'topology_id':child_topology_db['topology_id'],'generation': child_topology_db['generation']},dict(child_topology_db),upsert=True)
 
 def create_topology_db_from_json(json_topology,fpga_config,logger,allocation_info,topology_id):
-    topologia = {'topology_id': topology_id, 'generation': 0, 'topology_data': dict(), 'topology_score': None}
+    topologia = {'topology_id': topology_id, 'generation': 0, 'node_count' : len(json_topology),'link_count': None,'topology_data': dict(), 'topology_score': None}
     temp_topologia = {'topology_data': dict()} #para calculo de fitness
+    link_count = 0
     for node_id, network_node in json_topology.items():
         topologia['topology_data'][node_id] = None
         topologia['topology_data'][node_id] = {'FPGA': dict(), 'Links': network_node['Links']}
         temp_topologia['topology_data'][node_id] = None
         temp_topologia['topology_data'][node_id] = {'FPGA': dict(), 'Links': network_node['Links']}
+        link_count += len(network_node['Links'])
 
         len_fpgas = len(network_node['FPGA'])
 
@@ -193,6 +202,7 @@ def create_topology_db_from_json(json_topology,fpga_config,logger,allocation_inf
                 temp_topologia['topology_data'][node_id]['FPGA'][pos] = fpgaBoard
 
     topologia['topology_score'] = evaluate_topology(temp_topologia)
+    topologia['link_count'] = int(link_count/2)
     return ReplaceOne({'topology_id': topology_id, 'generation': 0}, topologia, upsert=True)
 
 def create_topology_fpgaboard_from_db(db_topology,fpga_config,logger,allocation_info):

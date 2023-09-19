@@ -1,0 +1,6 @@
+nodes;links;generation;population;realloc_rate;resize_rate;elite;maxScore
+8;10;10;100;0,0;0,4;10;0,7203703703703703
+8;10;10;100;0,05;0,8;10;0,7123456790123457
+8;10;10;100;0,1;0,4;10;0,7129629629629629
+nodes;links;generation;population;realloc_rate;resize_rate;elite;maxScore
+8;10;10;100;0,15;0,8;10;0,7308641975308642

@@ -248,7 +248,6 @@ class FpgaBoard():
 
   def save_allocated_to_file(self,path):
     json_output = self.partitionInfo
-    json_output = json.dumps(json_output, indent=4)
     utils.save_json_file(json_output,path)
 
     return
