@@ -9,6 +9,7 @@ from multiprocessing import Pool,Lock
 from functools import partial
 from tqdm import tqdm
 from pathlib import Path
+from time import time_ns
 
 config_dir = os.path.join(Path(__file__).parent.parent,'config')
 log_dir = os.path.join(Path(__file__).parent.parent,'logs')
@@ -106,12 +107,10 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
 
     total_len = topology_collection.count_documents({'generation': args['start_generation']})
     elite_len = args['elite']
-    print(f"{total_len=},{elite_len=}")
 
     if (args['elitep']):
         elite_len = int(total_len * args['elitep'])
 
-    print(f"{total_len=},{elite_len=}")
     children_len = total_len - elite_len
     logger.info(f"Criando gerações {args['start_generation'] + 1} a {args['start_generation'] + args['iterations']}")
 
@@ -164,7 +163,7 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
                 {'topology_id': elite_topology['topology_id'], 'generation': elite_topology['generation']},
                 elite_topology, upsert=True)
             queries.append(query)
-
+            
         logger.info(f"Atualizando banco de dados para geração {generation + 1}")
         topology_collection.bulk_write(queries)
 

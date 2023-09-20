@@ -110,6 +110,10 @@ if __name__ == '__main__':
 
         print(grupos_teste)
 
+        #pegar os 2 melhores grupos
+
+
+
 
     elif(args.export_topology):
         allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
