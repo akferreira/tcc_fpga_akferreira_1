@@ -176,24 +176,6 @@ class FpgaMatrix:
         start_column, start_row = start_coords
         end_column, end_row = end_coords
 
-        if (start_column > end_column):
-            start_column, end_column = end_column, start_column
-
-        if (start_row > end_row):
-            start_row, end_row = end_row, start_row
-
-        for coords in partitionInfo.values():
-            l2, r2 = coords['coords']
-            overlap = utils.check_region_overlap((start_column,start_row),(end_column,end_row),l2,r2)
-            if(overlap):
-               return
-
-
-        for coords in StaticRegion:
-            l2, r2 = coords
-            overlap = utils.check_region_overlap((start_column,start_row),(end_column,end_row),l2,r2)
-            if(overlap):
-                return
 
         #resourceCounter = Counter()
         resourceCount = {'CLB': 0,'BRAM':0, 'IO':0, 'DSP': 0}

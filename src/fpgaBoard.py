@@ -87,7 +87,7 @@ class FpgaBoard():
       static_tile.edgeStatic = True
       static_tile.innerStatic = False
 
-  def find_allocation_region(self, start_coord, size, direction=RIGHT):
+  def find_allocation_region(self, start_coord, size, direction=RIGHT, attempted_rectangles = []):
     if (self.getTile(start_coord).isAvailableForAllocation() == False):
       self.logger.debug(f"Can't allocate for {start_coord}. Coords are unavailable for allocation")
       return
@@ -95,25 +95,29 @@ class FpgaBoard():
     size_info = self.config['partition_size'][size]
     split_index = self.freeTiles[direction].index(start_coord)
     scan_coords = self.freeTiles[direction][split_index:] + self.freeTiles[direction][:split_index]
+    #scan_coords = [coord for coord in scan_coords if coord not in attempted_rectangles[start_coord]]
+    #print(f"{len1} to {len(scan_coords)}" )
 
     for current_coord in scan_coords:
       if (current_coord is None):
         self.logger.error(f"Can't allocate for {start_coord}. Found a None tile in the iteration coords")
-        return
+        return None,None
 
       column_diff, row_diff = abs(current_coord[0]-start_coord[0]),abs(current_coord[1]-start_coord[1])
-      if(column_diff*row_diff > MIN_AREA[size]):
-
+      if(column_diff*row_diff > MIN_AREA[size] and utils.full_overlap_check(start_coord, current_coord,self.partitionInfo,self.staticRegion) == False):
         current_resource_count = self.fpgaMatrix.calculate_region_resources(start_coord, current_coord,self.partitionInfo,self.staticRegion)
 
         if (current_resource_count is not None):
           if (self.fpgaMatrix.is_region_border_static(start_coord,current_coord,self.staticRegion) and utils.is_resource_count_sufficient(current_resource_count,size_info)):
-            return [start_coord, current_coord,current_resource_count]
+            return [start_coord, current_coord,current_resource_count],attempted_rectangles
+
+      #attempted_rectangles[start_coord].append(current_coord)
+      #attempted_rectangles[current_coord].append(start_coord)
 
     self.logger.debug(f"No allocation found for {start_coord} that satisfies {size_info}")
-    return None
+    return None,attempted_rectangles
 
-  def allocate_region(self,start_coords,end_coords,region_resource_count,resize = False):
+  def allocate_region(self,start_coords,end_coords,region_resource_count):
     start_coords,end_coords = utils.sort_coords(start_coords,end_coords)
     start_column, start_row = start_coords
     end_column, end_row = end_coords
@@ -141,27 +145,33 @@ class FpgaBoard():
       'coords': [(start_column,start_row),(end_column,end_row)],
       'resources': region_resource_count
     }
-    if(resize == False):
-      self.partitionCount+=1
+    self.partitionCount+=1
     return self.partitionCount
 
   def full_board_allocation(self,sizes,allocation_info):
     full_loop = False
+    attempted_rectangles = {'S': defaultdict(list), 'M':  defaultdict(list), 'L':  defaultdict(list)}
+    free_tiles = self.freeTiles.copy()
+
     while (full_loop == False):
-      random_coords = utils.generate_random_fpga_coord(self.fpgaMatrix)
+      #random_coords = utils.generate_random_fpga_coord(self.fpgaMatrix)
       direction = random.randrange(2)
       size = sizes[ random.randrange(len(sizes)) ]
-      allocation_coords = self.fpgaMatrix.create_matrix_loop(random_coords,direction = direction,excludeAllocated=True)
+      #allocation_coords = self.fpgaMatrix.create_matrix_loop(random_coords,direction = direction,excludeAllocated=True)
+      random.shuffle(free_tiles[direction])
+      allocation_coords = free_tiles[direction]
       self.logger.verbose(f'Attempting new allocation of {size=}')
+
       for i, coords in enumerate(allocation_coords):
         if(allocation_info[coords][size] == False):
           continue
         self.logger.debug(f'Attempt number {i} at {coords}')
-        allocation_region_test = self.find_allocation_region(coords, size,direction)
+        region_result,attempted_rectangles[size] = self.find_allocation_region(coords, size,direction,attempted_rectangles[size])
+        #print(attempted_rectangles[size].keys())
 
-        if (allocation_region_test is not None):
-          self.logger.verbose(f"Succesfully found an available region with {allocation_region_test[2]} at [{allocation_region_test[0]};{ allocation_region_test[1]}]")
-          self.allocate_region(allocation_region_test[0], allocation_region_test[1], allocation_region_test[2])
+        if (region_result is not None):
+          self.logger.verbose(f"Succesfully found an available region with {region_result[2]} at [{region_result[0]};{ region_result[1]}]")
+          self.allocate_region(region_result[0], region_result[1], region_result[2])
           break
       else:
         sizes.remove(size)

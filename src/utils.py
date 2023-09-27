@@ -38,6 +38,32 @@ def check_region_overlap(start1,end1,start2,end2):
 
     return True
 
+def full_overlap_check(start_coords,end_coords,partitionInfo,StaticRegion):
+    overlap = False
+    l2, r2 = 0, 0
+    start_column, start_row = start_coords
+    end_column, end_row = end_coords
+
+    if (start_column > end_column):
+        start_column, end_column = end_column, start_column
+
+    if (start_row > end_row):
+        start_row, end_row = end_row, start_row
+
+    for coords in partitionInfo.values():
+        l2, r2 = coords['coords']
+        overlap = check_region_overlap((start_column, start_row), (end_column, end_row), l2, r2)
+        if (overlap):
+            return True
+
+    for coords in StaticRegion:
+        l2, r2 = coords
+        overlap = check_region_overlap((start_column, start_row), (end_column, end_row), l2, r2)
+        if (overlap):
+            return True
+
+    return False
+
 
 def generate_random_direction(directions):
     return random.randrange(len(directions))

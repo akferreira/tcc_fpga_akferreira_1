@@ -18,7 +18,7 @@ def argparser():
     ga_parser.add_argument('--iterations', action='store', type=int, default=10, help = 'Quantidade de gerações a serem criadas', metavar=f"[0-999]")
     ga_parser.add_argument('--elite', action='store',dest= 'elite',type=int,default = 20, help = 'Tamanho inteiro da elite da população', metavar='[0-100]')
     ga_parser.add_argument('--elitep', action='store',dest= 'elitep',type=float,default = None, help = 'Tamanho percentual da elite da população', metavar='[0-1]')
-    ga_parser.add_argument('--realloc-rate', type=float, default = 0.25, help = 'Probabilidade de executar nova alocação aleatória nos filhos', metavar = '[0-1]')
+    ga_parser.add_argument('--realloc-rate', type=float, default = 0.35, help = 'Probabilidade de executar nova alocação aleatória nos filhos', metavar = '[0-1]')
     ga_parser.add_argument('--resize-rate',dest='resize_rate',type=float, default = 0.8, metavar = '[0-1]', help = 'Probabilidade de redimensionar as partições dos filhos')
     ga_parser.add_argument('--cpu',type=int,default = os.cpu_count()-1)
     ga_parser.add_argument('--testing',action='store_true')

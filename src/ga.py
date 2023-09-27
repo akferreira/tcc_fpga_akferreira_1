@@ -13,6 +13,7 @@ from time import time_ns
 
 config_dir = os.path.join(Path(__file__).parent.parent,'config')
 log_dir = os.path.join(Path(__file__).parent.parent,'logs')
+default_topologia_dir = os.path.join(Path(__file__).parent.parent, 'topology')
 
 """
 POPSIZE: 100 - 500
@@ -52,9 +53,9 @@ def populate_allocation_possibility(args,allocation_possibility,fpga_config,logg
     coord_pbar.set_description('Coordenadas verificadas para alocação')
     for coord in scan_coords:
         for size in fpga_config['partition_size']:
-            search_result = fpgaBoard.find_allocation_region(coord, size)
+            allocation_region,search_result = fpgaBoard.find_allocation_region(coord, size)
             allocation_info = {'modelo': 'G', 'row': coord[1], 'column': coord[0], 'size': size,
-                               'possible': search_result is not None}
+                               'possible': allocation_region is not None}
             coord_pbar.update(1)
             queries.append(
                 ReplaceOne({'modelo': 'G', 'row': coord[1], 'column': coord[0], 'size': size}, allocation_info,
@@ -77,7 +78,7 @@ def create_new_population(args,fpga_config,logger,topology_collection,allocation
         allocation_info[(entry['column'], entry['row'])][entry['size']] = entry['possible']
 
     logger.info("Geração inicial de redes")
-    topology = utils.load_topology(os.path.join(config_dir, args['topology_filename']))
+    topology = utils.load_topology(os.path.join(args['topology_dir'], args['topology_filename']))
 
     topology_queries = []
     topology_quantity = args['recreate']
@@ -163,7 +164,7 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
                 {'topology_id': elite_topology['topology_id'], 'generation': elite_topology['generation']},
                 elite_topology, upsert=True)
             queries.append(query)
-            
+
         logger.info(f"Atualizando banco de dados para geração {generation + 1}")
         topology_collection.bulk_write(queries)
 

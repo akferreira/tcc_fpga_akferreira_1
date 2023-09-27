@@ -50,6 +50,7 @@ if __name__ == '__main__':
     tcc_db = get_database()
     topology_collection = tcc_db['topology']
     allocation_possibility = tcc_db['allocation_possibility']
+    resource_info = tcc_db['resource_info']
 
 
     if(args.generate_base_topologies):
@@ -72,9 +73,10 @@ if __name__ == '__main__':
         exit(0)
 
     elif(args.testing):
-        POPSIZES = [100,200,300,400,500]
+        POPSIZES = [100,150,200,250,300,350,400,450,500]
+        GENERATIONS = [30,40,50,60,70]
         ELITE_SIZES = [0.1,0.2]
-        MUTATION_LIST = [(i/20, ((i%2)+1) * 0.4) for i in range(4)] #range 20
+        MUTATION_LIST = [(i/20, ((i%2)+1) * 0.4) for i in range(20)] #range 20
         grupos_teste = {}
         id_count = 0
         for population in POPSIZES:
@@ -86,8 +88,20 @@ if __name__ == '__main__':
             for grupo_teste in grupos_teste.values():
                 grupo_teste['mutation_values'].append( mutations)
 
-
         ga_args = vars(args)
+
+        for i in range(100):
+            realloc,resize = choices(MUTATION_LIST)[0]
+
+            ga_args['realloc_rate'] = realloc
+            ga_args['resize_rate'] = resize
+            ga_args['elitep'] = choices(ELITE_SIZES)[0]
+            ga_args['recreate'] = choices[POPSIZES][0]
+            ga_args['iterations'] = choices[GENERATIONS][0]
+            ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility)
+
+        exit(0)
+
         best_params = {}
         for id,grupo_teste in grupos_teste.items():
             print(f"{id}")
@@ -209,6 +223,13 @@ if __name__ == '__main__':
         logger.info("Fim")
         exit(0)
     else:
-        logger.info("Nenhuma opção")
+        board = FpgaBoard(fpga_config, logger)
+        allocation_info_cursor = allocation_possibility.find()  # allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
+        allocation_info = defaultdict(lambda: defaultdict(dict))  # a alocação é possível ou não
+        board.full_board_allocation(list(fpga_config['partition_size'].keys()), allocation_info)
+        logger.info("end")
+        utils.print_board(board,toFile = True)
+
+        #resource_info.replace_one({'modelo' : 'G'},precalc_resources,upsert=True)
 
 
