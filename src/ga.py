@@ -115,6 +115,8 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
     children_len = total_len - elite_len
     logger.info(f"Criando gerações {args['start_generation'] + 1} a {args['start_generation'] + args['iterations']}")
 
+    pool = Pool(args['cpu'])
+
     for generation in range(args['start_generation'], args['start_generation'] + args['iterations']):
         logger.info(f"Criando geração {generation + 1} de {args['start_generation'] + args['iterations']}")
         sizes = list(fpga_config['partition_size'].keys())
@@ -147,14 +149,14 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
             ga_args.append((dict(parent_topologias[p1]), dict(parent_topologias[p2]), child_id, fpga_config, logger,
                             sizes, dict(allocation_info), args['realloc_rate'], args['resize_rate']))
 
-        pool = Pool(args['cpu'])
+        #pool = Pool(args['cpu'])
         with tqdm(total=children_len, desc="Gerando redes filhas", ascii=" *",
                   bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}') as pbar:
             for result in pool.imap_unordered(network.create_child_topology_db_unpacker, ga_args):
                 queries.append(result)
                 pbar.update()
-        pool.close()
-        pool.join()
+        #pool.close()
+        #pool.join()
 
         for elite_index in elite_indexes:
             elite_topology = parent_topologias[elite_index]
@@ -168,6 +170,7 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
         logger.info(f"Atualizando banco de dados para geração {generation + 1}")
         topology_collection.bulk_write(queries)
 
+    pool.close()
     csv_path = os.path.join(args['log_dir'], 'topology_stats')
     # csv_filename = f"p{total_len}_{(args['topology_filename']).replace('.json','')}_realloc{int(args['realloc_rate']*100)}_res{int(args['resize_rate']*100)}_elite{elite_len}.csv"
     csv_filename = "results.csv"

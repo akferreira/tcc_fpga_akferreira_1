@@ -4,7 +4,7 @@ from collections import Counter,defaultdict,OrderedDict
 from multiprocessing import Pool,Lock
 from pathlib import Path
 from tqdm import tqdm
-from random import random,choices,shuffle
+from random import random,choices,shuffle,randrange
 import pandas as pd
 from src import utils,network,vsguerra,ga
 from src.fpgaBoard import FpgaBoard
@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
 
     if(args.generate_base_topologies):
-        topology_per_node_count = 3
+        topology_per_node_count = 20
         node_range = [i for i in range(10,41,5)]
         link_range = [(node_count*1.2,node_count*1.3) for node_count in node_range]
 
@@ -73,58 +73,24 @@ if __name__ == '__main__':
         exit(0)
 
     elif(args.testing):
-        POPSIZES = [100,150,200,250,300,350,400,450,500]
-        GENERATIONS = [30,40,50,60,70]
+        POPSIZES = [100,125,150,175,200,225,250,275,300,325,350,375,400,425,450,475,500]
+        GENERATIONS = [10,10,20,20,40,40,50,50,60,70,80,90]
         ELITE_SIZES = [0.1,0.2]
-        MUTATION_LIST = [(i/20, ((i%2)+1) * 0.4) for i in range(20)] #range 20
-        grupos_teste = {}
-        id_count = 0
-        for population in POPSIZES:
-            for elite_p in ELITE_SIZES:
-                grupos_teste[id_count] = {'population': population, 'elite_p': elite_p,'mutation_values': []}
-                id_count+=1
-
-        for mutations in MUTATION_LIST:
-            for grupo_teste in grupos_teste.values():
-                grupo_teste['mutation_values'].append( mutations)
-
+        REALLOC_LIST = [i/10 for i in range(10)]
+        RESIZE_LIST = [i/10 for i in range(10)]
         ga_args = vars(args)
 
-        for i in range(100):
-            realloc,resize = choices(MUTATION_LIST)[0]
-
-            ga_args['realloc_rate'] = realloc
-            ga_args['resize_rate'] = resize
+        for i in range(900):
+            ga_args['realloc_rate'] = choices(REALLOC_LIST)[0]
+            ga_args['resize_rate'] = choices(RESIZE_LIST)[0]
             ga_args['elitep'] = choices(ELITE_SIZES)[0]
-            ga_args['recreate'] = choices[POPSIZES][0]
-            ga_args['iterations'] = choices[GENERATIONS][0]
+            ga_args['recreate'] = choices(POPSIZES)[0]
+            ga_args['iterations'] = choices(GENERATIONS)[0]
+            ga_args['topology_filename'] = f"topology_N10_{randrange(100)%20}.json"
+            logger.info(f"Teste número {i} .. {ga_args}")
             ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility)
 
         exit(0)
-
-        best_params = {}
-        for id,grupo_teste in grupos_teste.items():
-            print(f"{id}")
-            scores = {}
-            for (realloc,resize) in grupo_teste['mutation_values']:
-                print((realloc,resize))
-                ga_args['realloc_rate'] = realloc
-                ga_args['resize_rate'] = resize
-                ga_args['elitep'] = grupo_teste['elite_p']
-                ga_args['recreate'] = grupo_teste['population']
-                best_score = ga.run_ga_on_new_population(ga_args,fpga_config,logger,topology_collection,allocation_possibility)
-                scores[(realloc,resize)] = best_score
-
-            best_score = max(scores.values())
-            best_mutation = max(scores,key=scores.get)
-            grupo_teste['best_mutation_values'] = best_mutation
-            grupo_teste['best_score'] = best_score
-
-            print(f"{id}.{scores=}")
-
-        print(grupos_teste)
-
-        #pegar os 2 melhores grupos
 
 
 
@@ -136,9 +102,9 @@ if __name__ == '__main__':
         for entry in allocation_info_cursor:
             allocation_info[(entry['column'],entry['row'])][entry['size']] = entry['possible']
 
-        topology_db_print = topology_collection.find_one({'generation':50, 'topology_id':110})
+        topology_db_print = topology_collection.find_one({'generation':30, 'topology_id':110})
         topology_print = network.create_topology_fpgaboard_from_db(topology_db_print,fpga_config,logger,allocation_info)
-        utils.print_board(topology_print['Nodo0']['FPGA']['0'],toFile=True,figloc='testGeneration1.png')
+        utils.print_board(topology_print['Nodo1']['FPGA']['0'],toFile=True,figloc='testGeneration1.png')
         print(topology_print)
 
 

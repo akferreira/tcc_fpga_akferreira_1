@@ -104,7 +104,8 @@ def save_current_topology_stats_to_csv(topology_collection,path,topology_filenam
              'nodes': {'$first': '$$ROOT.node_count'}, 'links': {'$first': '$$ROOT.link_count'},
              'avgScore': {'$avg': '$topology_score'},'population': {'$sum': 1}} },
         {
-            '$addFields': {'avgScore': {'$round': ['$avgScore', 4]}}},
+            '$addFields': {'avgScore': {'$round': ['$avgScore', 4]}},
+            '$addFields': {'maxScore': {'$round': ['$maxScore', 4]}}},
         {'$sort': {'_id': 1}},
         {'$project': {'_id': 0,'generation': '$_id','minScore': 1,'maxScore': 1,'avgScore': 1,'population': 1,'nodes':1,'links':1}}
     ]
