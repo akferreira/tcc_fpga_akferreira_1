@@ -22,6 +22,7 @@ def argparser():
     ga_parser.add_argument('--resize-rate',dest='resize_rate',type=float, default = 0.8, metavar = '[0-1]', help = 'Probabilidade de redimensionar as partições dos filhos')
     ga_parser.add_argument('--cpu',type=int,default = os.cpu_count()-1)
     ga_parser.add_argument('--testing',action='store_true')
+    ga_parser.add_argument('--agnostic',action='store_true')
 
     default_config_dir = os.path.join(Path(__file__).parent.parent, 'config')
     default_log_dir = os.path.join(Path(__file__).parent.parent, 'logs')

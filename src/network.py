@@ -226,5 +226,25 @@ def create_topology_fpgaboard_from_db(db_topology,fpga_config,logger,allocation_
 
     return topologia
 
+def create_agnostic_topology(topology,agnostic_fpga,fpga_config,logger,allocation_info):
+    topologia = {}
+    for node_id, network_node in topology.items():
+        topologia[node_id] = None
+        topologia[node_id] = {'FPGA': dict(), 'Links': network_node['Links']}
+        for pos, empty_fpga in enumerate(network_node['FPGA']):
+            # Cria FPGA zerado e faz uma alocação aleatória completa
+            fpgaBoard = FpgaBoard(fpga_config, logger)
+
+            for partition in agnostic_fpga['partitions'].values():
+                start_coords, end_coords = partition['coords']
+                fpgaBoard.allocate_region(start_coords, end_coords, partition['resources'])
+
+            topologia[node_id]['FPGA'][pos] = fpgaBoard
+
+
+
+    return topologia
+
+
 def export_topology_to_files(topology):
     return

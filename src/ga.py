@@ -78,7 +78,10 @@ def create_new_population(args,fpga_config,logger,topology_collection,allocation
         allocation_info[(entry['column'], entry['row'])][entry['size']] = entry['possible']
 
     logger.info("Geração inicial de redes")
-    topology = utils.load_topology(os.path.join(args['topology_dir'], args['topology_filename']))
+    if(args['agnostic']):
+        topology = utils.load_topology(os.path.join(args['topology_dir'], 'agnostic_topology.json'))
+    else:
+        topology = utils.load_topology(os.path.join(args['topology_dir'], args['topology_filename']))
 
     topology_queries = []
     topology_quantity = args['recreate']
@@ -171,14 +174,14 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
         topology_collection.bulk_write(queries)
 
     pool.close()
-    csv_path = os.path.join(args['log_dir'], 'topology_stats')
-    # csv_filename = f"p{total_len}_{(args['topology_filename']).replace('.json','')}_realloc{int(args['realloc_rate']*100)}_res{int(args['resize_rate']*100)}_elite{elite_len}.csv"
-    csv_filename = "results.csv"
-    maxScore = utils.save_current_topology_stats_to_csv(topology_collection, csv_path, csv_filename, args['realloc_rate'], args['resize_rate'], elite_len)
-    return maxScore
+    if(args['agnostic'] == False):
+        csv_path = os.path.join(args['log_dir'], 'topology_stats')
+        # csv_filename = f"p{total_len}_{(args['topology_filename']).replace('.json','')}_realloc{int(args['realloc_rate']*100)}_res{int(args['resize_rate']*100)}_elite{elite_len}.csv"
+        csv_filename = "results.csv"
+        maxScore = utils.save_current_topology_stats_to_csv(topology_collection, csv_path, csv_filename, args['realloc_rate'], args['resize_rate'], elite_len)
+        return maxScore
 
 def run_ga_on_new_population(args,fpga_config,logger,topology_collection,allocation_possibility):
     create_new_population(args, fpga_config, logger, topology_collection, allocation_possibility)
     best = run_ga_on_created_population(args, fpga_config, logger, topology_collection, allocation_possibility)
-    best = round(best,5)
     return best

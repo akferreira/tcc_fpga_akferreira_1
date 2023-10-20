@@ -13,6 +13,7 @@ from pymongo import MongoClient,ReplaceOne,ASCENDING,DESCENDING
 import argparse
 import logging
 from functools import partial
+from copy import copy
 
 fpga_config_url = 'https://raw.githubusercontent.com/akferreira/tcc_fpga_akferreira_1/main/fpga.json'
 partition_config_url = 'https://raw.githubusercontent.com/akferreira/tcc_fpga_akferreira_1/main/partition.json'
@@ -70,25 +71,49 @@ if __name__ == '__main__':
                     utils.save_json_file(base_topology,base_topology_dir)
                     i+=1
 
+        logger.info("Fim da geração de topologias base")
         exit(0)
 
     elif(args.testing):
-        POPSIZES = [100,125,150,175,200,225,250,275,300,325,350,375,400,425,450,475,500]
+        POPSIZES = [100,200,300,400,500]
         GENERATIONS = [10,10,20,20,40,40,50,50,60,70,80,90]
         ELITE_SIZES = [0.1,0.2]
         REALLOC_LIST = [i/10 for i in range(10)]
         RESIZE_LIST = [i/10 for i in range(10)]
         ga_args = vars(args)
 
-        for i in range(900):
+        for i in range(200):
             ga_args['realloc_rate'] = choices(REALLOC_LIST)[0]
             ga_args['resize_rate'] = choices(RESIZE_LIST)[0]
             ga_args['elitep'] = choices(ELITE_SIZES)[0]
             ga_args['recreate'] = choices(POPSIZES)[0]
             ga_args['iterations'] = choices(GENERATIONS)[0]
-            ga_args['topology_filename'] = f"topology_N10_{randrange(100)%20}.json"
+            ga_args['topology_filename'] = f"topology_N20_{randrange(100)%20}.json"
             logger.info(f"Teste número {i} .. {ga_args}")
+
             ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility)
+
+            if(args.agnostic):
+                allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
+                allocation_info = defaultdict(lambda: defaultdict(dict)) # a alocação é possível ou não
+                temp_topology = topology_collection.find_one({"generation":ga_args['iterations']},{"_id":0},sort = [("topology_score", DESCENDING)])
+                fpga_agnostic = temp_topology['topology_data']['Nodo1']['FPGA']['0']
+
+                base_topology = utils.load_topology(os.path.join(ga_args['topology_dir'], ga_args['topology_filename']))
+                link_count = int(sum([len(network_node['Links']) for node_id, network_node in base_topology.items()])/2)
+                topology_agnostic = network.create_agnostic_topology(base_topology,fpga_agnostic,fpga_config,logger,allocation_info)
+                topology_agnostic_temp = {'topology_data': copy(topology_agnostic)}
+                agnostic_score = network.evaluate_topology(topology_agnostic_temp)
+                header = ['nodes','links','generation','population','realloc_rate','resize_rate','elite','maxScore']
+                path = os.path.join(ga_args['log_dir'], 'topology_stats')
+                csv_filename = "agnostic_results.csv"
+                csv_path = os.path.join(path,csv_filename)
+                df = pd.DataFrame({'nodes': 20, 'links': link_count,'generation': ga_args['iterations'],'population': ga_args['recreate'],
+                                   'realloc_rate': ga_args['realloc_rate'],'resize_rate': ga_args['resize_rate'],'elite': int(ga_args['elitep']*ga_args['recreate']), 'maxScore': agnostic_score},index=[0])
+                header = None if os.path.isfile(csv_path) else header
+                df.to_csv(csv_path, sep=';', decimal=',', header=header, index=False,mode='a')
+
+
 
         exit(0)
 
