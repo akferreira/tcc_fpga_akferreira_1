@@ -6,3 +6,4 @@ __pycache__
 topology/*
 *.csv
 logs/topology_stats/*.csv
+logs/topology_stats/.*
