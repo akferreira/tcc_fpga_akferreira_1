@@ -5,5 +5,4 @@ __pycache__
 *.stats
 topology/*
 *.csv
-logs*
 logs/topology_stats/*.csv
