@@ -75,20 +75,21 @@ if __name__ == '__main__':
         exit(0)
 
     elif(args.testing):
-        POPSIZES = [100,200,300,400,500]
-        GENERATIONS = [10,10,20,20,40,40,50,50,60,70,80,90]
+        POPSIZES = [50,70]
+        GENERATIONS = [10,20,30,40,50,60,70,80,90]
         ELITE_SIZES = [0.1,0.2]
-        REALLOC_LIST = [i/10 for i in range(10)]
-        RESIZE_LIST = [i/10 for i in range(10)]
+        REALLOC_LIST = [0.0]
+        RESIZE_LIST = [i/10 for i in range(4)]
         ga_args = vars(args)
+        N = "N10"
 
-        for i in range(200):
+        for i in range(100):
             ga_args['realloc_rate'] = choices(REALLOC_LIST)[0]
             ga_args['resize_rate'] = choices(RESIZE_LIST)[0]
             ga_args['elitep'] = choices(ELITE_SIZES)[0]
             ga_args['recreate'] = choices(POPSIZES)[0]
             ga_args['iterations'] = choices(GENERATIONS)[0]
-            ga_args['topology_filename'] = f"topology_N20_{randrange(100)%20}.json"
+            ga_args['topology_filename'] = f"topology_{N}_{randrange(100)%20}.json"
             logger.info(f"Teste número {i} .. {ga_args}")
 
             ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility)
@@ -106,7 +107,7 @@ if __name__ == '__main__':
                 agnostic_score = network.evaluate_topology(topology_agnostic_temp)
                 header = ['nodes','links','generation','population','realloc_rate','resize_rate','elite','maxScore']
                 path = os.path.join(ga_args['log_dir'], 'topology_stats')
-                csv_filename = "agnostic_results.csv"
+                csv_filename = F"agnostic_results_{N}.csv"
                 csv_path = os.path.join(path,csv_filename)
                 df = pd.DataFrame({'nodes': 20, 'links': link_count,'generation': ga_args['iterations'],'population': ga_args['recreate'],
                                    'realloc_rate': ga_args['realloc_rate'],'resize_rate': ga_args['resize_rate'],'elite': int(ga_args['elitep']*ga_args['recreate']), 'maxScore': agnostic_score},index=[0])

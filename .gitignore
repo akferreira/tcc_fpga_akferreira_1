@@ -4,5 +4,6 @@ __pycache__
 .idea
 *.stats
 topology/*
-logs/*
 *.csv
+logs*
+logs/topology_stats/*.csv
