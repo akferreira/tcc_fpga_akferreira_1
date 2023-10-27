@@ -9,7 +9,7 @@ from multiprocessing import Pool,Lock
 from functools import partial
 from tqdm import tqdm
 from pathlib import Path
-from time import time_ns
+from time import time_ns,monotonic
 
 config_dir = os.path.join(Path(__file__).parent.parent,'config')
 log_dir = os.path.join(Path(__file__).parent.parent,'logs')
@@ -68,12 +68,15 @@ def populate_allocation_possibility(args,allocation_possibility,fpga_config,logg
 def create_new_population(args,fpga_config,logger,topology_collection,allocation_possibility):
     topology_collection.drop()
 
-    if(allocation_possibility is not None):
+    if(allocation_possibility is not None and allocation_possibility.count_documents({}) == 0):
         populate_allocation_possibility(args,allocation_possibility,fpga_config,logger)
 
     # formata entradas de allocation possiblity do banco de dados para uma estrutura em dict
-    allocation_info_temp = allocation_possibility.find()
+    allocation_info_temp = list(allocation_possibility.find())
     allocation_info = defaultdict(lambda: defaultdict(dict))
+
+
+
     for entry in allocation_info_temp:
         allocation_info[(entry['column'], entry['row'])][entry['size']] = entry['possible']
 
@@ -100,7 +103,9 @@ def create_new_population(args,fpga_config,logger,topology_collection,allocation
     logger.info("Atualizando banco de dados para primeira geração de topologias")
     topology_collection.bulk_write(topology_queries)
 
-def run_ga_on_created_population(args,fpga_config,logger,topology_collection,allocation_possibility):
+    return monotonic()
+
+def run_ga_on_created_population(args,fpga_config,logger,topology_collection,allocation_possibility,max_time = None,run_number = None):
     allocation_info_cursor = allocation_possibility.find()  # allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
     allocation_info = defaultdict(lambda: defaultdict(dict))  # a alocação é possível ou não
 
@@ -120,7 +125,13 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
 
     pool = Pool(args['cpu'])
 
+    t2 = monotonic()
+
     for generation in range(args['start_generation'], args['start_generation'] + args['iterations']):
+        t3 = monotonic()
+        if(max_time is not None and (t3 - t2) >= max_time):
+            logger.info("Tempo esgotado para execução")
+            break
         logger.info(f"Criando geração {generation + 1} de {args['start_generation'] + args['iterations']}")
         sizes = list(fpga_config['partition_size'].keys())
         topologia_cursor = topology_collection.find({'generation': generation}).sort([('topology_id', 1)])
@@ -172,16 +183,25 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
 
         logger.info(f"Atualizando banco de dados para geração {generation + 1}")
         topology_collection.bulk_write(queries)
+        if(max_time is not None):
+            csv_path = os.path.join(args['log_dir'], 'topology_stats')
+            csv_filename = "timed_results.csv"
+            maxScore = utils.save_current_topology_stats_to_csv(topology_collection, csv_path, csv_filename,
+                                                                args['realloc_rate'], args['resize_rate'], elite_len, t3-t2,run_number)
+        #write to timed_results.csv
+        #must have an additional header_ execution number
 
     pool.close()
     if(args['agnostic'] == False):
         csv_path = os.path.join(args['log_dir'], 'topology_stats')
         # csv_filename = f"p{total_len}_{(args['topology_filename']).replace('.json','')}_realloc{int(args['realloc_rate']*100)}_res{int(args['resize_rate']*100)}_elite{elite_len}.csv"
         csv_filename = "results.csv"
-        maxScore = utils.save_current_topology_stats_to_csv(topology_collection, csv_path, csv_filename, args['realloc_rate'], args['resize_rate'], elite_len)
+        maxScore = utils.save_current_topology_stats_to_csv(topology_collection, csv_path, csv_filename, args['realloc_rate'], args['resize_rate'], elite_len, t3-t2,run_number)
         return maxScore
 
-def run_ga_on_new_population(args,fpga_config,logger,topology_collection,allocation_possibility):
-    create_new_population(args, fpga_config, logger, topology_collection, allocation_possibility)
-    best = run_ga_on_created_population(args, fpga_config, logger, topology_collection, allocation_possibility)
+def run_ga_on_new_population(args,fpga_config,logger,topology_collection,allocation_possibility,max_time = None,run_number = None):
+    t0 = monotonic()
+    t1 = create_new_population(args, fpga_config, logger, topology_collection, allocation_possibility)
+    ga_max_time = None if max_time is None else (max_time - (t1 - t0))
+    best = run_ga_on_created_population(args, fpga_config, logger, topology_collection, allocation_possibility,ga_max_time,run_number)
     return best

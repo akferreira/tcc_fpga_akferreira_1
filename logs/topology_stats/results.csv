@@ -25,3 +25,4 @@ nodes;links;generation;population;realloc_rate;resize_rate;elite;maxScore
 10;13;20;70;0,0;0,1;14;0,6714
 10;12;60;50;0,0;0,2;10;0,7
 10;13;30;70;0,0;0,1;14;0,5478
+10;13;60;250;0,0;1,0;50;0,7143

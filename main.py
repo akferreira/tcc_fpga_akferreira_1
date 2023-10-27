@@ -75,24 +75,25 @@ if __name__ == '__main__':
         exit(0)
 
     elif(args.testing):
-        POPSIZES = [50,70]
-        GENERATIONS = [10,20,30,40,50,60,70,80,90]
+        POPSIZES = [50,70] + [i for i in range(100,101,25)]
+        GENERATIONS = [60,70,80,90]
         ELITE_SIZES = [0.1,0.2]
         REALLOC_LIST = [0.0]
-        RESIZE_LIST = [i/10 for i in range(4)]
+        RESIZE_LIST = [i/10 for i in range(11)]
         ga_args = vars(args)
         N = "N10"
+        max_time = 7200
 
-        for i in range(100):
+        for run_number in range(100):
             ga_args['realloc_rate'] = choices(REALLOC_LIST)[0]
             ga_args['resize_rate'] = choices(RESIZE_LIST)[0]
             ga_args['elitep'] = choices(ELITE_SIZES)[0]
             ga_args['recreate'] = choices(POPSIZES)[0]
             ga_args['iterations'] = choices(GENERATIONS)[0]
             ga_args['topology_filename'] = f"topology_{N}_{randrange(100)%20}.json"
-            logger.info(f"Teste número {i} .. {ga_args}")
-
-            ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility)
+            logger.info(f"Teste número {run_number} .. {ga_args}")
+            logger.info(f"Max time total {max_time}")
+            ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility,max_time, run_number)
 
             if(args.agnostic):
                 allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,

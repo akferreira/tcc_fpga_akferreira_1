@@ -96,7 +96,7 @@ def save_json_file(json_output,path):
 
 
 
-def save_current_topology_stats_to_csv(topology_collection,path,topology_filename,realloc_rate,resize_rate,elite):
+def save_current_topology_stats_to_csv(topology_collection,path,topology_filename,realloc_rate,resize_rate,elite,elapsed_time = None,run_counter =None):
     aggregation_query = [
         {'$match': {}},
         {'$group':
@@ -111,12 +111,14 @@ def save_current_topology_stats_to_csv(topology_collection,path,topology_filenam
     ]
 
     result = list(topology_collection.aggregate(aggregation_query))
-    header = ['nodes','links','generation','population','realloc_rate','resize_rate','elite','maxScore']
+    header = ['nodes','links','generation','population','realloc_rate','resize_rate','elite','time','run','maxScore']
     csv_path = os.path.join(path,topology_filename)
     stats_df = pd.DataFrame.from_records([result[-1]])
     stats_df['realloc_rate'] = realloc_rate
     stats_df['resize_rate'] = resize_rate
     stats_df['elite'] = elite
+    stats_df['time'] = elapsed_time
+    stats_df['run'] = run_counter
     stats_df = stats_df[header]
     header = None if os.path.isfile(csv_path) else header
     stats_df.to_csv(csv_path, sep=';', decimal=',', header=header, index=False,mode='a')
