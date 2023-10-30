@@ -125,11 +125,12 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
 
     pool = Pool(args['cpu'])
 
-    t2 = monotonic()
+    t1 = monotonic()
+    t3 = monotonic()
 
     for generation in range(args['start_generation'], args['start_generation'] + args['iterations']):
-        t3 = monotonic()
-        if(max_time is not None and (t3 - t2) >= max_time):
+        t2 = monotonic()
+        if(max_time is not None and (t1 - t2) >= max_time):
             logger.info("Tempo esgotado para execução")
             break
         logger.info(f"Criando geração {generation + 1} de {args['start_generation'] + args['iterations']}")
@@ -183,6 +184,7 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
 
         logger.info(f"Atualizando banco de dados para geração {generation + 1}")
         topology_collection.bulk_write(queries)
+        t3 = monotonic()
         if(max_time is not None):
             csv_path = os.path.join(args['log_dir'], 'topology_stats')
             csv_filename = "timed_results.csv"

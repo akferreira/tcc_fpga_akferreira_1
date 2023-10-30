@@ -50,6 +50,7 @@ if __name__ == '__main__':
 
     tcc_db = get_database()
     topology_collection = tcc_db['topology']
+    run_collection = tcc_db['test_run']
     allocation_possibility = tcc_db['allocation_possibility']
     resource_info = tcc_db['resource_info']
 
@@ -83,17 +84,20 @@ if __name__ == '__main__':
         ga_args = vars(args)
         N = "N10"
         max_time = 7200
+        #get current run_number
+        run_number = run_collection.count_documents({})
 
-        for run_number in range(100):
+
+        for i in range(100):
             ga_args['realloc_rate'] = choices(REALLOC_LIST)[0]
             ga_args['resize_rate'] = choices(RESIZE_LIST)[0]
             ga_args['elitep'] = choices(ELITE_SIZES)[0]
             ga_args['recreate'] = choices(POPSIZES)[0]
             ga_args['iterations'] = choices(GENERATIONS)[0]
             ga_args['topology_filename'] = f"topology_{N}_{randrange(100)%20}.json"
-            logger.info(f"Teste número {run_number} .. {ga_args}")
+            logger.info(f"Teste número {i} .. {ga_args}")
             logger.info(f"Max time total {max_time}")
-            ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility,max_time, run_number)
+            maxScore = ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility,max_time, run_number)
 
             if(args.agnostic):
                 allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
@@ -114,6 +118,9 @@ if __name__ == '__main__':
                                    'realloc_rate': ga_args['realloc_rate'],'resize_rate': ga_args['resize_rate'],'elite': int(ga_args['elitep']*ga_args['recreate']), 'maxScore': agnostic_score},index=[0])
                 header = None if os.path.isfile(csv_path) else header
                 df.to_csv(csv_path, sep=';', decimal=',', header=header, index=False,mode='a')
+
+            else:
+                run_collection.insert_one({'ga_args': ga_args,'score': maxScore})
 
 
 
