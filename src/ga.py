@@ -15,6 +15,7 @@ config_dir = os.path.join(Path(__file__).parent.parent,'config')
 log_dir = os.path.join(Path(__file__).parent.parent,'logs')
 default_topologia_dir = os.path.join(Path(__file__).parent.parent, 'topology')
 
+
 """
 POPSIZE: 100 - 500
 ELITESIZEP - 0 - 0.25
@@ -105,7 +106,11 @@ def create_new_population(args,fpga_config,logger,topology_collection,allocation
 
     return monotonic()
 
-def run_ga_on_created_population(args,fpga_config,logger,topology_collection,allocation_possibility,max_time = None,run_number = None):
+def run_ga_on_created_population(args,fpga_config,logger,topology_collection,allocation_possibility,timed_test_params = {}):
+    timed_tests = len(timed_test_params) == 0
+    run_number = timed_test_params.get('run',None)
+    max_time = timed_test_params.get('max_time',None)
+    elapsed_time = timed_test_params.get('elapsed_time',None)
     allocation_info_cursor = allocation_possibility.find()  # allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
     allocation_info = defaultdict(lambda: defaultdict(dict))  # a alocação é possível ou não
 
@@ -130,7 +135,7 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
 
     for generation in range(args['start_generation'], args['start_generation'] + args['iterations']):
         t2 = monotonic()
-        if(max_time is not None and (t1 - t2) >= max_time):
+        if(timed_tests and (t1 - t2) >= max_time):
             logger.info("Tempo esgotado para execução")
             break
         logger.info(f"Criando geração {generation + 1} de {args['start_generation'] + args['iterations']}")
@@ -185,11 +190,11 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
         logger.info(f"Atualizando banco de dados para geração {generation + 1}")
         topology_collection.bulk_write(queries)
         t3 = monotonic()
-        if(max_time is not None):
+        if(timed_tests):
             csv_path = os.path.join(args['log_dir'], 'topology_stats')
             csv_filename = "timed_results.csv"
             maxScore = utils.save_current_topology_stats_to_csv(topology_collection, csv_path, csv_filename,
-                                                                args['realloc_rate'], args['resize_rate'], elite_len, t3-t2,run_number)
+                                                                args['realloc_rate'], args['resize_rate'], elite_len, elapsed_time + (t3-t2),run_number)
         #write to timed_results.csv
         #must have an additional header_ execution number
 

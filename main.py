@@ -82,7 +82,7 @@ if __name__ == '__main__':
         REALLOC_LIST = [0.0]
         RESIZE_LIST = [i/10 for i in range(11)]
         ga_args = vars(args)
-        N = "N10"
+        N = "N40"
         max_time = 7200
         #get current run_number
         run_number = run_collection.count_documents({})

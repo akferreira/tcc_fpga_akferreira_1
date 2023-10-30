@@ -9,3 +9,4 @@ logs/topology_stats/*.csv
 logs/topology_stats/.*
 logs\topology_stats\*
 *.ini
+logs/topology_stats/results.csv
