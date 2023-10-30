@@ -117,7 +117,7 @@ def save_current_topology_stats_to_csv(topology_collection,path,topology_filenam
     stats_df['realloc_rate'] = realloc_rate
     stats_df['resize_rate'] = resize_rate
     stats_df['elite'] = elite
-    stats_df['time'] = elapsed_time
+    stats_df['time'] = round(elapsed_time,4)
     stats_df['run'] = run_counter
     stats_df = stats_df[header]
     header = None if os.path.isfile(csv_path) else header
