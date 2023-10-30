@@ -1,6 +1,8 @@
 # @title Utils
+from src import network
 import matplotlib.pyplot as plt
 from urllib.request import urlopen
+from collections import Counter,defaultdict,OrderedDict
 import os
 import json
 import random
@@ -123,6 +125,26 @@ def save_current_topology_stats_to_csv(topology_collection,path,topology_filenam
     header = None if os.path.isfile(csv_path) else header
     stats_df.to_csv(csv_path, sep=';', decimal=',', header=header, index=False,mode='a')
     return result[-1]['maxScore']
+
+def extrapolate_atomic_run_to_full_topology(allocation_possibility,ga_args):
+    allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
+    allocation_info = defaultdict(lambda: defaultdict(dict)) # a alocação é possível ou não
+    temp_topology = topology_collection.find_one({"generation":ga_args['iterations']},{"_id":0},sort = [("topology_score", DESCENDING)])
+    fpga_agnostic = temp_topology['topology_data']['Nodo1']['FPGA']['0']
+
+    base_topology = load_topology(os.path.join(ga_args['topology_dir'], ga_args['topology_filename']))
+    link_count = int(sum([len(network_node['Links']) for node_id, network_node in base_topology.items()])/2)
+    topology_agnostic = network.create_agnostic_topology(base_topology,fpga_agnostic,fpga_config,logger,allocation_info)
+    topology_agnostic_temp = {'topology_data': copy(topology_agnostic)}
+    agnostic_score = network.evaluate_topology(topology_agnostic_temp)
+    header = ['nodes','links','generation','population','realloc_rate','resize_rate','elite','maxScore']
+    path = os.path.join(ga_args['log_dir'], 'topology_stats')
+    csv_filename = F"agnostic_results_{N}.csv"
+    csv_path = os.path.join(path,csv_filename)
+    df = pd.DataFrame({'nodes': 20, 'links': link_count,'generation': ga_args['iterations'],'population': ga_args['recreate'],
+                    'realloc_rate': ga_args['realloc_rate'],'resize_rate': ga_args['resize_rate'],'elite': int(ga_args['elitep']*ga_args['recreate']), 'maxScore': agnostic_score},index=[0])
+    header = None if os.path.isfile(csv_path) else header
+    df.to_csv(csv_path, sep=';', decimal=',', header=header, index=False,mode='a')
 
 
 def is_resource_count_sufficient(resources1, resources2):
