@@ -126,6 +126,22 @@ def save_current_topology_stats_to_csv(topology_collection,path,topology_filenam
     stats_df.to_csv(csv_path, sep=';', decimal=',', header=header, index=False,mode='a')
     return result[-1]['maxScore']
 
+
+def register_best_topology_from_run(topology_collection, log_collection,ga_args,run_number,generational_results):
+
+    result = list(topology_collection.find({}).sort( [('topology_score',-1)]).limit(1) )
+    best_topology = result[0]
+    best_topology['topology_id'] = ga_args['topology_filename']
+    best_topology['topology_score'] = round(best_topology['topology_score'],4)
+    best_topology['resize_rate'] = ga_args['resize_rate']
+    best_topology['elitep'] = ga_args['elitep']
+    best_topology['population'] = ga_args['recreate']
+    best_topology['run_number'] = run_number
+    best_topology['generational_results'] = generational_results
+
+    log_collection.insert_one(best_topology)
+    return
+
 def extrapolate_atomic_run_to_full_topology(allocation_possibility,ga_args):
     allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
     allocation_info = defaultdict(lambda: defaultdict(dict)) # a alocação é possível ou não

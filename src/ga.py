@@ -86,6 +86,7 @@ def create_new_population(args,fpga_config,logger,topology_collection,allocation
     else:
         topology = utils.load_topology(os.path.join(args['topology_dir'], args['topology_filename']))
 
+    initial_population_start = monotonic()
     topology_queries = []
     topology_quantity = args['recreate']
     recreate_pool = Pool(args['cpu'])
@@ -100,12 +101,13 @@ def create_new_population(args,fpga_config,logger,topology_collection,allocation
 
     recreate_pool.close()
     recreate_pool.join()
+    initial_population_end = monotonic()
     logger.info("Atualizando banco de dados para primeira geração de topologias")
     topology_collection.bulk_write(topology_queries)
+    maxScore = 0
 
-    timed_tests = len(timed_test_params) == 0
-    current_elapsed_time = monotonic()
-
+    timed_tests = len(timed_test_params) > 0
+    current_elapsed_time = initial_population_end - initial_population_start
     if(timed_tests):
         total_len = topology_collection.count_documents({'generation': args['start_generation']})
         elite_len = args['elite']
@@ -122,10 +124,10 @@ def create_new_population(args,fpga_config,logger,topology_collection,allocation
 
 
 
-    return current_elapsed_time
+    return current_elapsed_time,[(current_elapsed_time,maxScore)]
 
 def run_ga_on_created_population(args,fpga_config,logger,topology_collection,allocation_possibility,timed_test_params = {}):
-    timed_tests = len(timed_test_params) == 0
+    timed_tests = len(timed_test_params) > 0
     run_number = timed_test_params.get('run',None)
     max_time = timed_test_params.get('max_time',None)
     initial_elapsed_time = timed_test_params.get('elapsed_time',None)
@@ -147,12 +149,14 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
     logger.info(f"Criando gerações {args['start_generation'] + 1} a {args['start_generation'] + args['iterations']}")
 
     pool = Pool(args['cpu'])
-
+    print(f"timed is  {timed_tests}. {max_time}")
     ga_start = monotonic()
+    generational_partial_results = [] #lista contendo o tempo de execução e score para cada geração
 
     for generation in range(args['start_generation'], args['start_generation'] + args['iterations']):
         generation_start = monotonic()
-        if(timed_tests and (ga_start - generation_start) >= max_time):
+        if(timed_tests and (generation_start - ga_start) >= max_time):
+            print(generation_start  - ga_start)
             logger.info("Tempo esgotado para execução")
             break
         logger.info(f"Criando geração {generation + 1} de {args['start_generation'] + args['iterations']}")
@@ -210,9 +214,10 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
         if(timed_tests):
             csv_path = os.path.join(args['log_dir'], 'topology_stats')
             csv_filename = "timed_results.csv"
-            current_elapsed_time = initial_elapsed_time + (generation_end-t2)
+            current_elapsed_time = initial_elapsed_time + (generation_end - ga_start)
             maxScore = utils.save_current_topology_stats_to_csv(topology_collection, csv_path, csv_filename,
                                                                 args['realloc_rate'], args['resize_rate'], elite_len, current_elapsed_time,run_number)
+            generational_partial_results.append((current_elapsed_time))
 
     pool.close()
     if(args['agnostic'] == False):
@@ -220,15 +225,16 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
         csv_filename = "results.csv"
         ga_end = monotonic()
         maxScore = utils.save_current_topology_stats_to_csv(topology_collection, csv_path, csv_filename, args['realloc_rate'], args['resize_rate'], elite_len, ga_start-ga_end,run_number)
-        return maxScore
+
+        return maxScore,generational_partial_results
 
 def run_ga_on_new_population(args,fpga_config,logger,topology_collection,allocation_possibility,max_time = None,run_number = None):
-    timed_test_params = {'run_number': run_number}
-    t0 = monotonic()
-    t1 = create_new_population(args, fpga_config, logger, topology_collection, allocation_possibility,timed_test_params)
+    timed_test_params = {'run': run_number}
+    creation_time,creation_partial_result = create_new_population(args, fpga_config, logger, topology_collection, allocation_possibility,timed_test_params)
 
-    timed_test_params['elapsed_time'] = t1-t0
-    timed_test_params['max_time'] = max_time - (t1 - t0)
+    timed_test_params['elapsed_time'] = creation_time
+    timed_test_params['max_time'] = max_time - creation_time
 
-    best = run_ga_on_created_population(args, fpga_config, logger, topology_collection, allocation_possibility,timed_test_params)
-    return best
+    best,generational_partial_results = run_ga_on_created_population(args, fpga_config, logger, topology_collection, allocation_possibility,timed_test_params)
+
+    return best,creation_partial_result + generational_partial_results

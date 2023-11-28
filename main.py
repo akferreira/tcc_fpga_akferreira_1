@@ -13,7 +13,7 @@ from pymongo import MongoClient,ReplaceOne,ASCENDING,DESCENDING
 import argparse
 import logging
 from functools import partial
-from copy import copy
+from copy import copy,deepcopy
 
 fpga_config_url = 'https://raw.githubusercontent.com/akferreira/tcc_fpga_akferreira_1/main/fpga.json'
 partition_config_url = 'https://raw.githubusercontent.com/akferreira/tcc_fpga_akferreira_1/main/partition.json'
@@ -50,13 +50,14 @@ if __name__ == '__main__':
 
     tcc_db = get_database()
     topology_collection = tcc_db['topology']
+    topology_log = tcc_db['topology_run_results']
     run_collection = tcc_db['test_run']
     allocation_possibility = tcc_db['allocation_possibility']
     resource_info = tcc_db['resource_info']
 
 
     if(args.generate_base_topologies):
-        topology_per_node_count = 20
+        topology_per_node_count = 10
         node_range = [i for i in range(10,41,5)]
         link_range = [(node_count*1.2,node_count*1.3) for node_count in node_range]
 
@@ -76,48 +77,79 @@ if __name__ == '__main__':
         exit(0)
 
     elif(args.testing):
-        POPSIZES = [50,70] + [i for i in range(100,101,25)]
-        GENERATIONS = [60,70,80,90]
-        ELITE_SIZES = [0.1,0.2]
+
+        POPSIZES = [50,70,100,200,250,300,325,350,375,450]
+        GENERATIONS = [10,20,30,40,50,60,70,80,90]
+        ELITE_SIZES = [0.0]
         REALLOC_LIST = [0.0]
-        RESIZE_LIST = [i/10 for i in range(11)]
+        RESIZE_LIST = [i for i in range(11)]
         ga_args = vars(args)
-        N = "N40"
+        N = "N30"
         max_time = 7200
+        TOPOLOGY_COUNT = 10
         #get current run_number
+        #run_collection.drop()
         run_number = run_collection.count_documents({})
+        default_timed_params = {'popsize' : 300 ,'elitep': 0.1,'resize': 0.5}
+        timed_params = [default_timed_params]
+
+        popsize_params = [150,450]
+        elite_params = [0.04,0.2]
+        resize_params = [0.2,0.8]
+
+        for popsize in popsize_params:
+            temp_timed_params = copy(default_timed_params)
+            temp_timed_params['popsize'] = popsize
+            timed_params.append(temp_timed_params)
+
+        for elitep in elite_params:
+            temp_timed_params = copy(default_timed_params)
+            temp_timed_params['elitep'] = elitep
+            timed_params.append(temp_timed_params)
+
+        for resize in resize_params:
+            temp_timed_params = copy(default_timed_params)
+            temp_timed_params['resize'] = resize
+            timed_params.append(temp_timed_params)
 
 
+        #print(f"num params: {len(timed_params)}")
+        print(timed_params);
+
+        for topology_id in range(TOPOLOGY_COUNT):
+            for params in timed_params:
+                logger.info(f"{params=}<>{topology_id=}")
+                ga_args['realloc_rate'] = 0.0
+                ga_args['resize_rate'] = params['resize']
+                ga_args['elitep'] = params['elitep']
+                ga_args['recreate'] = params['popsize']
+                ga_args['iterations'] = 9000
+                ga_args['topology_filename'] = f"topology_{N}_{topology_id}.json"
+                maxScore,generational_results = ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility,max_time, run_number)
+
+                if(args.agnostic):
+                    extrapolate_atomic_run_to_full_topology(allocation_possibility,ga_args)
+
+                else:
+                    utils.register_best_topology_from_run(topology_collection, topology_log,ga_args,run_number,generational_results)
+                    run_collection.insert_one({'ga_args': ga_args,'score': maxScore})
+                    run_number +=1
+
+
+        exit(0)
         for i in range(100):
             ga_args['realloc_rate'] = choices(REALLOC_LIST)[0]
             ga_args['resize_rate'] = choices(RESIZE_LIST)[0]
             ga_args['elitep'] = choices(ELITE_SIZES)[0]
             ga_args['recreate'] = choices(POPSIZES)[0]
             ga_args['iterations'] = choices(GENERATIONS)[0]
-            ga_args['topology_filename'] = f"topology_{N}_{randrange(100)%20}.json"
+            ga_args['topology_filename'] = f"topology_{N}_{randrange(100)%100}.json"
             logger.info(f"Teste número {i} .. {ga_args}")
             logger.info(f"Max time total {max_time}")
             maxScore = ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility,max_time, run_number)
 
             if(args.agnostic):
-                allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
-                allocation_info = defaultdict(lambda: defaultdict(dict)) # a alocação é possível ou não
-                temp_topology = topology_collection.find_one({"generation":ga_args['iterations']},{"_id":0},sort = [("topology_score", DESCENDING)])
-                fpga_agnostic = temp_topology['topology_data']['Nodo1']['FPGA']['0']
-
-                base_topology = utils.load_topology(os.path.join(ga_args['topology_dir'], ga_args['topology_filename']))
-                link_count = int(sum([len(network_node['Links']) for node_id, network_node in base_topology.items()])/2)
-                topology_agnostic = network.create_agnostic_topology(base_topology,fpga_agnostic,fpga_config,logger,allocation_info)
-                topology_agnostic_temp = {'topology_data': copy(topology_agnostic)}
-                agnostic_score = network.evaluate_topology(topology_agnostic_temp)
-                header = ['nodes','links','generation','population','realloc_rate','resize_rate','elite','maxScore']
-                path = os.path.join(ga_args['log_dir'], 'topology_stats')
-                csv_filename = F"agnostic_results_{N}.csv"
-                csv_path = os.path.join(path,csv_filename)
-                df = pd.DataFrame({'nodes': 20, 'links': link_count,'generation': ga_args['iterations'],'population': ga_args['recreate'],
-                                   'realloc_rate': ga_args['realloc_rate'],'resize_rate': ga_args['resize_rate'],'elite': int(ga_args['elitep']*ga_args['recreate']), 'maxScore': agnostic_score},index=[0])
-                header = None if os.path.isfile(csv_path) else header
-                df.to_csv(csv_path, sep=';', decimal=',', header=header, index=False,mode='a')
+                extrapolate_atomic_run_to_full_topology(allocation_possibility,ga_args)
 
             else:
                 run_collection.insert_one({'ga_args': ga_args,'score': maxScore})
