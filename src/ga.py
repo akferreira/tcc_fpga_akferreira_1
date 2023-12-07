@@ -68,6 +68,7 @@ def populate_allocation_possibility(args,allocation_possibility,fpga_config,logg
 
 def create_new_population(args,fpga_config,logger,topology_collection,allocation_possibility,timed_test_params = {}):
     topology_collection.drop()
+    #TODO: add a regex to extract the topology_id from the filename, for consistency
 
     if(allocation_possibility is not None and allocation_possibility.count_documents({}) == 0):
         populate_allocation_possibility(args,allocation_possibility,fpga_config,logger)
@@ -216,17 +217,20 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
             csv_filename = "timed_results.csv"
             current_elapsed_time = initial_elapsed_time + (generation_end - ga_start)
             maxScore = utils.save_current_topology_stats_to_csv(topology_collection, csv_path, csv_filename,
-                                                                args['realloc_rate'], args['resize_rate'], elite_len, current_elapsed_time,run_number)
-            generational_partial_results.append((current_elapsed_time))
+                                                                args['realloc_rate'], args['resize_rate'], elite_len, current_elapsed_time,run_number,args['topology_id'])
+            generational_partial_results.append((current_elapsed_time,maxScore))
 
     pool.close()
     if(args['agnostic'] == False):
         csv_path = os.path.join(args['log_dir'], 'topology_stats')
         csv_filename = "results.csv"
         ga_end = monotonic()
-        maxScore = utils.save_current_topology_stats_to_csv(topology_collection, csv_path, csv_filename, args['realloc_rate'], args['resize_rate'], elite_len, ga_start-ga_end,run_number)
+        maxScore = utils.save_current_topology_stats_to_csv(topology_collection, csv_path, csv_filename, args['realloc_rate'], args['resize_rate'], elite_len, ga_start-ga_end,run_number,args['topology_id'])
 
         return maxScore,generational_partial_results
+
+    else:
+        return utils.get_best_current_score(topology_collection),generational_partial_results
 
 def run_ga_on_new_population(args,fpga_config,logger,topology_collection,allocation_possibility,max_time = None,run_number = None):
     timed_test_params = {'run': run_number}

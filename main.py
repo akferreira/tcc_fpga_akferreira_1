@@ -84,8 +84,8 @@ if __name__ == '__main__':
         REALLOC_LIST = [0.0]
         RESIZE_LIST = [i for i in range(11)]
         ga_args = vars(args)
-        N = "N30"
-        max_time = 7200
+        N = "N10"
+        max_time = 600
         TOPOLOGY_COUNT = 10
         #get current run_number
         #run_collection.drop()
@@ -114,7 +114,8 @@ if __name__ == '__main__':
 
 
         #print(f"num params: {len(timed_params)}")
-        print(timed_params);
+        print(timed_params)
+        print(args.agnostic)
 
         for topology_id in range(TOPOLOGY_COUNT):
             for params in timed_params:
@@ -124,11 +125,19 @@ if __name__ == '__main__':
                 ga_args['elitep'] = params['elitep']
                 ga_args['recreate'] = params['popsize']
                 ga_args['iterations'] = 9000
+                ga_args['network_size'] = N
                 ga_args['topology_filename'] = f"topology_{N}_{topology_id}.json"
+                ga_args['topology_id'] = topology_id
                 maxScore,generational_results = ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility,max_time, run_number)
 
                 if(args.agnostic):
-                    extrapolate_atomic_run_to_full_topology(allocation_possibility,ga_args)
+                    print(generational_results)
+                    agnostic_score = utils.extrapolate_atomic_run_to_full_topology(topology_collection,allocation_possibility,fpga_config,logger,ga_args)
+                    print(f"{agnostic_score=}")
+                    utils.register_best_topology_from_agnostic_run(topology_collection, topology_log, ga_args, run_number,
+                                   generational_results, agnostic_score)
+                    run_collection.insert_one({'ga_args': ga_args, 'score': maxScore})
+                    run_number += 1
 
                 else:
                     utils.register_best_topology_from_run(topology_collection, topology_log,ga_args,run_number,generational_results)

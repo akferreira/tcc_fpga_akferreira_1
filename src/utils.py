@@ -3,11 +3,13 @@ from src import network
 import matplotlib.pyplot as plt
 from urllib.request import urlopen
 from collections import Counter,defaultdict,OrderedDict
+from pymongo import DESCENDING
 import os
 import json
 import random
 import numpy as np
 import pandas as pd
+from copy import copy,deepcopy
 
 
 class AllocationError():
@@ -98,7 +100,7 @@ def save_json_file(json_output,path):
 
 
 
-def save_current_topology_stats_to_csv(topology_collection,path,topology_filename,realloc_rate,resize_rate,elite,elapsed_time = None,run_counter =None):
+def save_current_topology_stats_to_csv(topology_collection,path,topology_filename,realloc_rate,resize_rate,elite,elapsed_time = None,run_counter =None, topology_id = None):
     aggregation_query = [
         {'$match': {}},
         {'$group':
@@ -113,9 +115,10 @@ def save_current_topology_stats_to_csv(topology_collection,path,topology_filenam
     ]
 
     result = list(topology_collection.aggregate(aggregation_query))
-    header = ['nodes','links','generation','population','realloc_rate','resize_rate','elite','time','run','maxScore']
+    header = ['nodes','links','generation','population','realloc_rate','resize_rate','elite','time','run','topology_id','maxScore']
     csv_path = os.path.join(path,topology_filename)
     stats_df = pd.DataFrame.from_records([result[-1]])
+    stats_df['topology_id'] = topology_id
     stats_df['realloc_rate'] = realloc_rate
     stats_df['resize_rate'] = resize_rate
     stats_df['elite'] = elite
@@ -142,10 +145,30 @@ def register_best_topology_from_run(topology_collection, log_collection,ga_args,
     log_collection.insert_one(best_topology)
     return
 
-def extrapolate_atomic_run_to_full_topology(allocation_possibility,ga_args):
+def get_best_current_score(topology_collection):
+    result = list(topology_collection.find({}).sort([('topology_score', -1)]).limit(1))
+    best_topology = result[0]
+    return round(best_topology['topology_score'],4)
+def register_best_topology_from_agnostic_run(topology_collection, log_collection,ga_args,run_number,generational_results,agnostic_score):
+
+    result = list(topology_collection.find({}).sort( [('topology_score',-1)]).limit(1) )
+    best_topology = result[0]
+    best_topology['agnostic'] = True
+    best_topology['topology_id'] = ga_args['topology_filename']
+    best_topology['topology_score'] = round(agnostic_score,4)
+    best_topology['resize_rate'] = ga_args['resize_rate']
+    best_topology['elitep'] = ga_args['elitep']
+    best_topology['population'] = ga_args['recreate']
+    best_topology['run_number'] = run_number
+    best_topology['generational_results'] = None
+
+    log_collection.insert_one(best_topology)
+    return
+
+def extrapolate_atomic_run_to_full_topology(topology_collection,allocation_possibility,fpga_config,logger, ga_args):
     allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
     allocation_info = defaultdict(lambda: defaultdict(dict)) # a alocação é possível ou não
-    temp_topology = topology_collection.find_one({"generation":ga_args['iterations']},{"_id":0},sort = [("topology_score", DESCENDING)])
+    temp_topology = topology_collection.find_one({},{"_id":0},sort = [("generation", DESCENDING),('topology_score',DESCENDING)])
     fpga_agnostic = temp_topology['topology_data']['Nodo1']['FPGA']['0']
 
     base_topology = load_topology(os.path.join(ga_args['topology_dir'], ga_args['topology_filename']))
@@ -155,12 +178,14 @@ def extrapolate_atomic_run_to_full_topology(allocation_possibility,ga_args):
     agnostic_score = network.evaluate_topology(topology_agnostic_temp)
     header = ['nodes','links','generation','population','realloc_rate','resize_rate','elite','maxScore']
     path = os.path.join(ga_args['log_dir'], 'topology_stats')
-    csv_filename = F"agnostic_results_{N}.csv"
+
+    csv_filename = F"agnostic_results_{ga_args['network_size']}.csv"
     csv_path = os.path.join(path,csv_filename)
-    df = pd.DataFrame({'nodes': 20, 'links': link_count,'generation': ga_args['iterations'],'population': ga_args['recreate'],
+    df = pd.DataFrame({'nodes': ga_args['network_size'], 'links': link_count,'generation': ga_args['iterations'],'population': ga_args['recreate'],
                     'realloc_rate': ga_args['realloc_rate'],'resize_rate': ga_args['resize_rate'],'elite': int(ga_args['elitep']*ga_args['recreate']), 'maxScore': agnostic_score},index=[0])
     header = None if os.path.isfile(csv_path) else header
     df.to_csv(csv_path, sep=';', decimal=',', header=header, index=False,mode='a')
+    return agnostic_score
 
 
 def is_resource_count_sufficient(resources1, resources2):
