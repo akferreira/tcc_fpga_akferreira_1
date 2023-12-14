@@ -149,7 +149,7 @@ def get_best_current_score(topology_collection):
     result = list(topology_collection.find({}).sort([('topology_score', -1)]).limit(1))
     best_topology = result[0]
     return round(best_topology['topology_score'],4)
-def register_best_topology_from_agnostic_run(log_collection,ga_args,run_number,generational_results,agnostic_score,agnostic_topology):
+def register_best_topology_from_agnostic_run(log_collection,ga_args,run_number,generational_results,gnostic_score,agnostic_topology,agnostic_score):
 
     #result = list(topology_collection.find({}).sort( [('topology_score',-1)]).limit(1) )
     #best_topology = result[0]
@@ -166,12 +166,13 @@ def register_best_topology_from_agnostic_run(log_collection,ga_args,run_number,g
 
     agnostic_topology['agnostic'] = True
     agnostic_topology['topology_id'] = ga_args['topology_filename']
-    agnostic_topology['topology_score'] = round(agnostic_score,4)
+    agnostic_topology['topology_score'] = round(gnostic_score,4)
+    agnostic_topology['agnostic_score'] = round(agnostic_score,4)
     agnostic_topology['resize_rate'] = ga_args['resize_rate']
     agnostic_topology['elitep'] = ga_args['elitep']
     agnostic_topology['population'] = ga_args['recreate']
     agnostic_topology['run_number'] = run_number
-    agnostic_topology['generational_results'] = None
+    agnostic_topology['generational_results'] = generational_results
 
     log_collection.insert_one(agnostic_topology)
     return
