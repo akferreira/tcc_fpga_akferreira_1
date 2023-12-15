@@ -119,7 +119,7 @@ if __name__ == '__main__':
         max_time = 360
         TOPOLOGY_COUNT = 10
         agnostic_params_best = {10: {'popsize' : 300 ,'elitep': 0.1,'resize': 0.2}, 30:{'popsize' : 300 ,'elitep': 0.1,'resize': 0.8}}
-        aware_params_best = {'popsize' : 300 ,'elitep': 0.1,'resize': 0.8}
+        aware_params_best = {10: {'popsize' : 300 ,'elitep': 0.04,'resize': 0.5}, 30:{'popsize' : 300 ,'elitep': 0.1,'resize': 0.8}}
         run_number = run_collection.count_documents({})
         default_timed_params = {'popsize' : 300 ,'elitep': 0.1,'resize': 0.5}
         timed_params = [default_timed_params]
@@ -153,7 +153,7 @@ if __name__ == '__main__':
 
         if(args.agnostic):
             if(args.compare):
-                timed_params = [agnostic_params_best]
+                timed_params = [agnostic_params_best[node_count]]
 
             for params in timed_params:
                 logger.info(f"{params=}")
@@ -182,8 +182,8 @@ if __name__ == '__main__':
 
         else:
             if(args.compare):
-                timed_params = [aware_params_best]
-                
+                timed_params = [aware_params_best[node_count]]
+
             for topology_id in range(TOPOLOGY_COUNT):
                 for params in timed_params:
                     logger.info(f"{params=}<>{topology_id=}")
