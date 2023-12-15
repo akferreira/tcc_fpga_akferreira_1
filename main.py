@@ -6,10 +6,11 @@ from pathlib import Path
 from tqdm import tqdm
 from random import random,choices,shuffle,randrange
 import pandas as pd
-from src import utils,network,vsguerra,ga
+from src import utils,network,vsguerra,ga,db
 from src.fpgaBoard import FpgaBoard
 from config import config
 from pymongo import MongoClient,ReplaceOne,ASCENDING,DESCENDING
+import dataclasses
 import argparse
 import logging
 from functools import partial
@@ -22,13 +23,10 @@ partition_config_filename = 'partition.json'
 fpga_topology_filename = 'topologia.json'
 logfile_filename = 'run.log'
 node_id_regex =  re.compile('Nodo(\d+)', re.IGNORECASE)
+topology_id_regex = re.compile('topology_N\d{2}_(\d).json', re.IGNORECASE)
 
-DB_CONNECTION_STRING = "mongodb://localhost:27017"
-DB_NAME = "tcc"
 
-def get_database():
-    client = MongoClient(DB_CONNECTION_STRING)
-    return client[DB_NAME]
+
 
 
 
@@ -48,12 +46,13 @@ topologias = []
 if __name__ == '__main__':
     logger.info("Iniciando")
 
-    tcc_db = get_database()
+    tcc_db = db.get_database(MongoClient)
     topology_collection = tcc_db['topology']
     topology_log = tcc_db['topology_run_results']
     run_collection = tcc_db['test_run']
     allocation_possibility = tcc_db['allocation_possibility']
     resource_info = tcc_db['resource_info']
+    request_info = tcc_db['requests_info']
 
 
     if(args.generate_base_topologies):
@@ -76,6 +75,37 @@ if __name__ == '__main__':
         logger.info("Fim da geração de topologias base")
         exit(0)
 
+    elif(args.generate_req_list):
+        allocation_info_cursor = allocation_possibility.find()  # allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
+        allocation_info = defaultdict(lambda: defaultdict(dict))  # a alocação é possível ou não
+
+        for entry in allocation_info_cursor:
+            allocation_info[(entry['column'], entry['row'])][entry['size']] = entry['possible']
+
+        ga_args = vars(args)
+        TOPOLOGY_COUNT = 10
+        NODE_COUNTS = [10,30]
+
+        for node_count in NODE_COUNTS:
+            for topology_id in range(TOPOLOGY_COUNT):
+                topology_filename = f"topology_N{node_count}_{topology_id}.json"
+
+                json_topology = utils.load_topology(os.path.join(ga_args['topology_dir'], topology_filename))
+                topology = network.create_topology_db_from_json(json_topology,fpga_config,logger,allocation_info,topology_id,return_db_op = False)
+                requests_dataclass = network.create_request_list(topology,node_count)
+
+                requests_plain = []
+                for request_sublist in requests_dataclass:
+                    req_list = []
+                    for request in request_sublist:
+                        req_list.append(dataclasses.asdict(request))
+                    requests_plain.append(req_list)
+
+                print(requests_plain)
+                request_info.insert_one({'topology_filename': topology_filename,'requests': requests_plain})
+
+        exit(0)
+
     elif(args.testing):
 
         POPSIZES = [50,70,100,200,250,300,325,350,375,450]
@@ -84,12 +114,12 @@ if __name__ == '__main__':
         REALLOC_LIST = [0.0]
         RESIZE_LIST = [i for i in range(11)]
         ga_args = vars(args)
-        node_count = 30
+        node_count = 10
         N = f"N{node_count}"
-        max_time = 7200
+        max_time = 360
         TOPOLOGY_COUNT = 10
-        #get current run_number
-        #run_collection.drop()
+        agnostic_params_best = {10: {'popsize' : 300 ,'elitep': 0.1,'resize': 0.2}, 30:{'popsize' : 300 ,'elitep': 0.1,'resize': 0.8}}
+        aware_params_best = {'popsize' : 300 ,'elitep': 0.1,'resize': 0.8}
         run_number = run_collection.count_documents({})
         default_timed_params = {'popsize' : 300 ,'elitep': 0.1,'resize': 0.5}
         timed_params = [default_timed_params]
@@ -117,8 +147,14 @@ if __name__ == '__main__':
         #print(f"num params: {len(timed_params)}")
         print(timed_params)
         print(args.agnostic)
+        if(args.compare):
+            x = 5
+
 
         if(args.agnostic):
+            if(args.compare):
+                timed_params = [agnostic_params_best]
+
             for params in timed_params:
                 logger.info(f"{params=}")
                 ga_args['realloc_rate'] = 0.0
@@ -145,6 +181,9 @@ if __name__ == '__main__':
                     run_number += 1
 
         else:
+            if(args.compare):
+                timed_params = [aware_params_best]
+                
             for topology_id in range(TOPOLOGY_COUNT):
                 for params in timed_params:
                     logger.info(f"{params=}<>{topology_id=}")
@@ -186,6 +225,12 @@ if __name__ == '__main__':
         exit(0)
 
     elif(args.ga):
+        match = topology_id_regex.match(args.topology_filename)
+        if(match is not None):
+            topology_id = match.group(1)
+
+        ga_args = vars(args)
+        ga_args['topology_id'] = topology_id
         best = ga.run_ga_on_created_population(vars(args),fpga_config,logger,topology_collection,allocation_possibility)
         exit(0)
         allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,

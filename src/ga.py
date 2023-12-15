@@ -91,8 +91,10 @@ def create_new_population(args,fpga_config,logger,topology_collection,allocation
     topology_queries = []
     topology_quantity = args['recreate']
     recreate_pool = Pool(args['cpu'])
+    req_topology_filename = args['topology_filename'] if args['compare'] else None #somente usa as requisições associadas a uma topologia para comparação com método agnóstico
+
     topology_creation_func = partial(network.create_topology_db_from_json, topology, fpga_config, logger,
-                                     dict(allocation_info))
+                                     dict(allocation_info), req_topology_filename = req_topology_filename)
     with tqdm(total=topology_quantity, desc='Geração de redes', bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}',
               ascii=' #', position=0) as topology_pbar:
         for result in recreate_pool.imap_unordered(topology_creation_func,
@@ -135,13 +137,15 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
     allocation_info_cursor = allocation_possibility.find()  # allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
     allocation_info = defaultdict(lambda: defaultdict(dict))  # a alocação é possível ou não
 
+    req_topology_filename = args['topology_filename'] if args['compare'] else None  # somente usa as requisições associadas a uma topologia para comparação com método agnóstico
+
     for entry in allocation_info_cursor:
         allocation_info[(entry['column'], entry['row'])][entry['size']] = entry['possible']
 
     logger.info("Iniciando algortimo genético")
 
     total_len = topology_collection.count_documents({'generation': args['start_generation']})
-    elite_len = args['elite']
+    elite_len = min(args['elite'], total_len)
 
     if (args['elitep']):
         elite_len = int(total_len * args['elitep'])
@@ -189,7 +193,7 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
             pos = int(i / 2)
             child_id = non_elite_indexes[pos]
             ga_args.append((dict(parent_topologias[p1]), dict(parent_topologias[p2]), child_id, fpga_config, logger,
-                            sizes, dict(allocation_info), args['realloc_rate'], args['resize_rate']))
+                            sizes, dict(allocation_info), args['realloc_rate'], args['resize_rate'],req_topology_filename))
 
         #pool = Pool(args['cpu'])
         with tqdm(total=children_len, desc="Gerando redes filhas", ascii=" *",

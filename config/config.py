@@ -23,6 +23,7 @@ def argparser():
     ga_parser.add_argument('--cpu',type=int,default = os.cpu_count()-1)
     ga_parser.add_argument('--testing',action='store_true')
     ga_parser.add_argument('--agnostic',action='store_true')
+    ga_parser.add_argument('--compare', action='store_true')
 
     default_config_dir = os.path.join(Path(__file__).parent.parent, 'config')
     default_log_dir = os.path.join(Path(__file__).parent.parent, 'logs')
@@ -37,6 +38,7 @@ def argparser():
     file_parser.add_argument('--fpga-data-loc',dest='fpga_data_loc', default='fpga_data.json')
     file_parser.add_argument('--export-topology', action='store_true')
     file_parser.add_argument('--generate-base-topologies', action='store_true')
+    file_parser.add_argument('--generate-req-list', action='store_true')
     file_parser.add_argument('--log-dir', default = default_log_dir)
     file_parser.add_argument('--topology-dir', default = default_topologia_dir)
 

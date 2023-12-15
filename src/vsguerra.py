@@ -476,6 +476,8 @@ def ler_Topologia(topologia):
     caminhos=[]
     lista_Nodos=[]
 
+
+
     for node_id,node in topologia['topology_data'].items():
         nodos.append(node)
         nodo_id=node_id_regex.match(node_id).group()
@@ -499,7 +501,14 @@ def ler_Topologia(topologia):
 
         for fpga in fpgas.values():
             lista_Parts=[]
-            for part in fpga.partitionInfo.values():
+
+
+            try:
+                part_list = fpga.partitionInfo.values()
+            except AttributeError:
+                part_list = fpga['partitions'].values()
+
+            for part in part_list:
                 resources = part['resources']
 
                 clb=resources["CLB"]
@@ -659,6 +668,7 @@ def check_Parts(devices, function, part_allocated,nodo):
 
             if allocated:
                 continue
+
             if part.clb-function.clb<0:
                 continue
             if part.bram-function.bram<0:

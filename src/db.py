@@ -1,13 +1,8 @@
-
-def populate_allocation_possibility():
-    return
-
-def initialize_topology_population():
-    return
-
-def save_topologies_generation(topologies,generation):
-    return
-
+DB_CONNECTION_STRING = "mongodb://localhost:27017"
+DB_NAME = "tcc"
+def get_database(MongoClient):
+    client = MongoClient(DB_CONNECTION_STRING)
+    return client[DB_NAME]
 
 
 

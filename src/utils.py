@@ -1,5 +1,5 @@
 # @title Utils
-from src import network
+from src import network,db
 import matplotlib.pyplot as plt
 from urllib.request import urlopen
 from collections import Counter,defaultdict,OrderedDict
@@ -16,6 +16,8 @@ class AllocationError():
 
     def __init__(self):
         return
+
+
 
 
 def generate_random_fpga_coord(fpgaMatrix):
@@ -181,13 +183,22 @@ def extrapolate_atomic_run_to_full_topology(topology_collection,allocation_possi
     allocation_info_cursor = allocation_possibility.find()     #allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
     allocation_info = defaultdict(lambda: defaultdict(dict)) # a alocação é possível ou não
     temp_topology = topology_collection.find_one({},{"_id":0},sort = [("generation", DESCENDING),('topology_score',DESCENDING)])
-    fpga_agnostic = temp_topology['topology_data']['Nodo1']['FPGA']['0']
+    fpga_agnostic = None
+
+    for node_id in range(10):
+        try:
+            fpga_agnostic = temp_topology['topology_data'][f'Nodo{node_id}']['FPGA']['0']
+            break
+        except KeyError:
+            continue
 
     base_topology = load_topology(os.path.join(ga_args['topology_dir'], ga_args['topology_filename']))
     link_count = int(sum([len(network_node['Links']) for node_id, network_node in base_topology.items()])/2)
     topology_agnostic = network.create_agnostic_topology(base_topology,fpga_agnostic,fpga_config,logger,allocation_info)
     topology_agnostic_temp = {'topology_data': copy(topology_agnostic)}
-    agnostic_score = network.evaluate_topology(topology_agnostic_temp)
+
+    comp_filename = ga_args['topology_filename'] if ga_args['compare'] else None
+    agnostic_score = network.evaluate_topology(topology_agnostic_temp, comp_filename)
     header = ['nodes','links','generation','population','realloc_rate','resize_rate','elite','maxScore']
     path = os.path.join(ga_args['log_dir'], 'topology_stats')
 
