@@ -91,7 +91,7 @@ def create_new_population(args,fpga_config,logger,topology_collection,allocation
     topology_queries = []
     topology_quantity = args['recreate']
     recreate_pool = Pool(args['cpu'])
-    req_topology_filename = args['topology_filename'] if args['compare'] else None #somente usa as requisições associadas a uma topologia para comparação com método agnóstico
+    req_topology_filename = args['topology_filename'] if (args['compare'] and args['agnostic'] == False) else None #somente usa as requisições associadas a uma topologia para comparação do método ciente com método agnóstico
 
     topology_creation_func = partial(network.create_topology_db_from_json, topology, fpga_config, logger,
                                      dict(allocation_info), req_topology_filename = req_topology_filename)
@@ -137,7 +137,7 @@ def run_ga_on_created_population(args,fpga_config,logger,topology_collection,all
     allocation_info_cursor = allocation_possibility.find()  # allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
     allocation_info = defaultdict(lambda: defaultdict(dict))  # a alocação é possível ou não
 
-    req_topology_filename = args['topology_filename'] if args['compare'] else None  # somente usa as requisições associadas a uma topologia para comparação com método agnóstico
+    req_topology_filename = args['topology_filename'] if (args['compare'] and args['agnostic'] == False) else None # somente usa as requisições associadas a uma topologia para comparação com método agnóstico
 
     for entry in allocation_info_cursor:
         allocation_info[(entry['column'], entry['row'])][entry['size']] = entry['possible']

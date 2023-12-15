@@ -76,6 +76,7 @@ if __name__ == '__main__':
         exit(0)
 
     elif(args.generate_req_list):
+        request_info.drop()
         allocation_info_cursor = allocation_possibility.find()  # allocation_info é o dicionário que contém a informação se para uma coordenada e tamanho de partição,
         allocation_info = defaultdict(lambda: defaultdict(dict))  # a alocação é possível ou não
 
@@ -116,7 +117,7 @@ if __name__ == '__main__':
         ga_args = vars(args)
         node_count = 10
         N = f"N{node_count}"
-        max_time = 360
+        max_time = 3600
         TOPOLOGY_COUNT = 10
         agnostic_params_best = {'popsize' : 300 ,'elitep': 0.1,'resize': 0.8}
         aware_params_best = {'popsize' : 300 ,'elitep': 0.1,'resize': 0.8}
@@ -147,8 +148,6 @@ if __name__ == '__main__':
         #print(f"num params: {len(timed_params)}")
         print(timed_params)
         print(args.agnostic)
-        if(args.compare):
-            x = 5
 
 
         if(args.agnostic):
@@ -164,7 +163,7 @@ if __name__ == '__main__':
                 ga_args['iterations'] = 9000
                 ga_args['network_size'] = node_count
                 ga_args['topology_id'] = None
-
+                ga_args['topology_filename'] = f"topology_{N}_0.json"
                 maxScore,generational_results = ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility,max_time, run_number)
 
                 print(generational_results)
