@@ -45,7 +45,8 @@ best_n10 = {'nodes': 10,'population': best_n10[0][0],'resize_rate':  best_n10[0]
 best_n30 = sorted_n30_dict[0]
 best_n30 = {'nodes': 30,'population': best_n30[0][0],'resize_rate':  best_n30[0][1],'elite':  best_n30[0][2],'avgScore': best_n30[1]['mean'],'stdev':best_n30[1]['stddev']}
 
-print(best_n10)
+print(sorted_n10_dict[0:3])
+print(sorted_n30_dict[0:3])
 best_n10_df = pd.DataFrame(best_n10,columns=list(best_n10.keys()) , index = [0])
 best_n30_df = pd.DataFrame(best_n30,columns=list(best_n30.keys()) , index = [0])
 best_n10_df.to_csv(f'agnostic_best.csv', sep=';', decimal=',', index=False,mode='w')
