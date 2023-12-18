@@ -158,13 +158,11 @@ def register_best_topology_from_agnostic_run(log_collection,ga_args,run_number,g
     #agnostic_topology = dict()
     for node,node_info in agnostic_topology['topology_data'].items():
         fpga_dict = dict()
-        for key,fpga_info in enumerate(node_info['FPGA']):
-            fpga_dict[str(key)] = fpga_info
+        print(node_info['FPGA'])
+        for key,fpga in node_info['FPGA'].items():
+            fpga_dict[str(key)] = fpga.get_db_dict()
 
-            agnostic_topology['topology_data'][node]['FPGA'] = fpga_dict
-
-
-    print(agnostic_topology)
+        agnostic_topology['topology_data'][node]['FPGA'] = fpga_dict
 
     agnostic_topology['agnostic'] = True
     agnostic_topology['topology_id'] = ga_args['topology_filename']
@@ -175,7 +173,6 @@ def register_best_topology_from_agnostic_run(log_collection,ga_args,run_number,g
     agnostic_topology['population'] = ga_args['recreate']
     agnostic_topology['run_number'] = run_number
     agnostic_topology['generational_results'] = generational_results
-
     log_collection.insert_one(agnostic_topology)
     return
 
@@ -195,7 +192,10 @@ def extrapolate_atomic_run_to_full_topology(topology_collection,allocation_possi
     base_topology = load_topology(os.path.join(ga_args['topology_dir'], ga_args['topology_filename']))
     link_count = int(sum([len(network_node['Links']) for node_id, network_node in base_topology.items()])/2)
     topology_agnostic = network.create_agnostic_topology(base_topology,fpga_agnostic,fpga_config,logger,allocation_info)
+    print(topology_agnostic['Nodo8'])
     topology_agnostic_temp = {'topology_data': copy(topology_agnostic)}
+    print("copied")
+    print(topology_agnostic_temp['topology_data']['Nodo8'])
 
     comp_filename = ga_args['topology_filename'] if ga_args['compare'] else None
     agnostic_score = network.evaluate_topology(topology_agnostic_temp, comp_filename)
@@ -208,6 +208,8 @@ def extrapolate_atomic_run_to_full_topology(topology_collection,allocation_possi
                     'realloc_rate': ga_args['realloc_rate'],'resize_rate': ga_args['resize_rate'],'elite': int(ga_args['elitep']*ga_args['recreate']), 'maxScore': agnostic_score},index=[0])
     header = None if os.path.isfile(csv_path) else header
     df.to_csv(csv_path, sep=';', decimal=',', header=header, index=False,mode='a')
+    print("return")
+    print(topology_agnostic_temp['topology_data']['Nodo8'])
     return agnostic_score,topology_agnostic_temp
 
 

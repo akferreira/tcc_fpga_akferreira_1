@@ -109,21 +109,48 @@ if __name__ == '__main__':
 
     elif(args.testing):
 
+
+
         POPSIZES = [50,70,100,200,250,300,325,350,375,450]
         GENERATIONS = [10,20,30,40,50,60,70,80,90]
         ELITE_SIZES = [0.0]
         REALLOC_LIST = [0.0]
         RESIZE_LIST = [i for i in range(11)]
         ga_args = vars(args)
-        node_count = 10
-        N = f"N{node_count}"
-        max_time = 3600
+        node_counts = [10,30]
+        #N = f"N{node_count}"
+        max_times = {10:3600,30:7200}
         TOPOLOGY_COUNT = 10
         agnostic_params_best = {'popsize' : 300 ,'elitep': 0.1,'resize': 0.8}
         aware_params_best = {'popsize' : 300 ,'elitep': 0.1,'resize': 0.8}
         run_number = run_collection.count_documents({})
         default_timed_params = {'popsize' : 300 ,'elitep': 0.1,'resize': 0.5}
         timed_params = [default_timed_params]
+
+        if(args.compare):
+            best_topologies_aware = {10: [],30:[]}
+            best_topologies_agnostic = {10: [],30:[]}
+
+            for node_count in node_counts:
+                for topology_id in range(TOPOLOGY_COUNT):
+                    print(f"{topology_id=}")
+                    topology_filename = f"topology_N{node_count}_{topology_id}.json"
+                    search_params = {'agnostic': True,'population': agnostic_params_best['popsize'],'elitep': agnostic_params_best['elitep'],'resize_rate': agnostic_params_best['resize'],'topology_id': topology_filename}
+                    print(search_params)
+                    agnostic_topology_db = (list(topology_log.find(search_params).limit(1)))[0]
+
+                    print(agnostic_topology_db['topology_data'])
+
+                    agnostic_topology_db['topology_score'] = network.evaluate_topology(agnostic_topology_db,topology_filename)
+                    print(agnostic_topology_db['topology_score'])
+
+
+
+
+
+
+
+            exit(0)
 
         popsize_params = [150,450]
         elite_params = [0.04,0.2]
@@ -151,54 +178,61 @@ if __name__ == '__main__':
 
 
         if(args.agnostic):
-            if(args.compare):
-                timed_params = [agnostic_params_best]
+            timed_params = [{'popsize' : 300 ,'elitep': 0.1,'resize': 0.8}]
 
-            for params in timed_params:
-                logger.info(f"{params=}")
-                ga_args['realloc_rate'] = 0.0
-                ga_args['resize_rate'] = params['resize']
-                ga_args['elitep'] = params['elitep']
-                ga_args['recreate'] = params['popsize']
-                ga_args['iterations'] = 9000
-                ga_args['network_size'] = node_count
-                ga_args['topology_id'] = None
-                ga_args['topology_filename'] = f"topology_{N}_0.json"
-                maxScore,generational_results = ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility,max_time, run_number)
+            for node_count in node_counts:
+                max_time = max_times[node_count]
+                N = f"N{node_count}"
 
-                print(generational_results)
-
-
-                for topology_id in range(TOPOLOGY_COUNT):
-                    ga_args['topology_id'] = topology_id
-                    ga_args['topology_filename'] = f"topology_{N}_{topology_id}.json"
-                    agnostic_score,agnostic_topology = utils.extrapolate_atomic_run_to_full_topology(topology_collection,allocation_possibility,fpga_config,logger,ga_args)
-                    print(f"{agnostic_score=}")
-                    utils.register_best_topology_from_agnostic_run(topology_log, ga_args, run_number,
-                                generational_results, agnostic_score,agnostic_topology,maxScore)
-                    run_collection.insert_one({'ga_args': ga_args, 'score': maxScore,'agnostic':True})
-                    run_number += 1
-
-        else:
-            if(args.compare):
-                timed_params = [aware_params_best]
-
-            for topology_id in range(TOPOLOGY_COUNT):
                 for params in timed_params:
-                    logger.info(f"{params=}<>{topology_id=}")
+                    logger.info(f"{params=}")
                     ga_args['realloc_rate'] = 0.0
                     ga_args['resize_rate'] = params['resize']
                     ga_args['elitep'] = params['elitep']
                     ga_args['recreate'] = params['popsize']
                     ga_args['iterations'] = 9000
                     ga_args['network_size'] = node_count
-                    ga_args['topology_filename'] = f"topology_{N}_{topology_id}.json"
-                    ga_args['topology_id'] = topology_id
+                    ga_args['topology_id'] = None
+                    ga_args['topology_filename'] = f"topology_{N}_0.json"
                     maxScore,generational_results = ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility,max_time, run_number)
 
-                    utils.register_best_topology_from_run(topology_collection, topology_log,ga_args,run_number,generational_results)
-                    run_collection.insert_one({'ga_args': ga_args,'score': maxScore})
-                    run_number +=1
+
+                    for topology_id in range(TOPOLOGY_COUNT):
+                        ga_args['topology_id'] = topology_id
+                        ga_args['topology_filename'] = f"topology_{N}_{topology_id}.json"
+                        agnostic_score,agnostic_topology = utils.extrapolate_atomic_run_to_full_topology(topology_collection,allocation_possibility,fpga_config,logger,ga_args)
+
+                        utils.register_best_topology_from_agnostic_run(topology_log, ga_args, run_number,
+                                    generational_results, agnostic_score,agnostic_topology,maxScore)
+                        run_collection.insert_one({'ga_args': ga_args, 'score': maxScore,'agnostic':True})
+                        run_number += 1
+
+        else:
+            if(args.compare):
+                timed_params = [aware_params_best]
+
+            print(timed_params)
+
+            for node_count in node_counts:
+             max_time = max_times[node_count]
+             N = f"N{node_count}"
+            
+             for topology_id in range(TOPOLOGY_COUNT):
+                 for params in timed_params:
+                     logger.info(f"{params=}<>{topology_id=}")
+                     ga_args['realloc_rate'] = 0.0
+                     ga_args['resize_rate'] = params['resize']
+                     ga_args['elitep'] = params['elitep']
+                     ga_args['recreate'] = params['popsize']
+                     ga_args['iterations'] = 9000
+                     ga_args['network_size'] = node_count
+                     ga_args['topology_filename'] = f"topology_{N}_{topology_id}.json"
+                     ga_args['topology_id'] = topology_id
+                     maxScore,generational_results = ga.run_ga_on_new_population(ga_args, fpga_config, logger, topology_collection, allocation_possibility,max_time, run_number)
+
+                     utils.register_best_topology_from_run(topology_collection, topology_log,ga_args,run_number,generational_results)
+                     run_collection.insert_one({'ga_args': ga_args,'score': maxScore})
+                     run_number +=1
 
 
         exit(0)

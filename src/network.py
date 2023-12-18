@@ -122,9 +122,14 @@ def save_topology_db(topology,topology_collection):
     topology_collection.replace_one({'topology_id':topology['topology_id'],'generation': db_topology['generation']},db_topology,upsert=True)
 
 def create_request_list(topology,nodos_G,runs = 30):
-    req = int(nodos_G * 1.5 * 4.5)
-    req_qtd = 0
+    fpga_count = 0
+    for node_id,node in topology['topology_data'].items():
+        fpga_count += len(node['FPGA'])
+
+
+    req = int(fpga_count * 4.5)
     lista_requisicoes = [vsguerra.ler_Requisicoes(vsguerra.gerador_Req(nodos_G, req, topology)) for i in range(runs)]
+
     return lista_requisicoes
 def evaluate_topology(topology,topology_filename = None):
     nodos_G = len(topology['topology_data'].keys())
@@ -137,7 +142,7 @@ def evaluate_topology(topology,topology_filename = None):
     req_qtd = 0
 
     if(topology_filename is None):
-        print("no comparison")
+        #print("no comparison")
         lista_requisicoes = [ vsguerra.ler_Requisicoes(vsguerra.gerador_Req(nodos_G,req_per_run,topology)) for i in range(runs)]
 
     else:
