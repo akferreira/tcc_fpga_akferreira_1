@@ -153,15 +153,15 @@ if __name__ == '__main__':
                     best_topologies_agnostic[node_count].append(agnostic_topology_db['topology_score'])
                     best_topologies_aware[node_count].append(agnostic_topology_db['topology_score'])
 
-                ax = plt.subplot(11)
-                ax.bar(best_topologies_agnostic[10], width=0.2, color='b', align='center')
-                ax.bar(best_topologies_aware[10], width=0.2, color='g', align='center')
-                plt.savefig(f'N10_samereq_comp.png', dpi=800)
+            ax = plt.subplot(111)
+            ax.bar(best_topologies_agnostic[10], width=0.2, color='b', align='center')
+            ax.bar(best_topologies_aware[10], width=0.2, color='g', align='center')
+            plt.savefig(f'N10_samereq_comp.png', dpi=800)
 
-                ax = plt.subplot(2)
-                ax.bar(best_topologies_agnostic[30], width=0.2, color='b', align='center')
-                ax.bar(best_topologies_aware[30], width=0.2, color='g', align='center')
-                plt.savefig(f'N30_samereq_comp.png', dpi=800)
+            ax = plt.subplot(112)
+            ax.bar(best_topologies_agnostic[30], width=0.2, color='b', align='center')
+            ax.bar(best_topologies_aware[30], width=0.2, color='g', align='center')
+            plt.savefig(f'N30_samereq_comp.png', dpi=800)
 
 
 
