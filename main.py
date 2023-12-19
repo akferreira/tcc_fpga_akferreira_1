@@ -5,6 +5,7 @@ from multiprocessing import Pool,Lock
 from pathlib import Path
 from tqdm import tqdm
 from random import random,choices,shuffle,randrange
+import matplotlib.pyplot as plt
 import pandas as pd
 from src import utils,network,vsguerra,ga,db
 from src.fpgaBoard import FpgaBoard
@@ -131,6 +132,8 @@ if __name__ == '__main__':
             best_topologies_aware = {10: [],30:[]}
             best_topologies_agnostic = {10: [],30:[]}
 
+
+
             for node_count in node_counts:
                 for topology_id in range(TOPOLOGY_COUNT):
                     topology_filename = f"topology_N{node_count}_{topology_id}.json"
@@ -140,14 +143,25 @@ if __name__ == '__main__':
                     agnostic_topology_db['topology_score'] = network.evaluate_topology(agnostic_topology_db,topology_filename)
                     print(f"score after {agnostic_topology_db['topology_score']}")
 
+
                     search_params = {'agnostic': {'$exists': False},'population': aware_params_best['popsize'],'elitep': aware_params_best['elitep'],'resize_rate': aware_params_best['resize'],'topology_id': topology_filename}
                     aware_topology_db = (list(topology_log.find(search_params).limit(1)))[0]
                     print(f"score before {aware_topology_db['topology_score']}")
-                    agnostic_topology_db['topology_score'] = network.evaluate_topology(aware_topology_db,topology_filename)
+                    aware_topology_db['topology_score'] = network.evaluate_topology(aware_topology_db,topology_filename)
                     print(f"score after {aware_topology_db['topology_score']}")
 
+                    best_topologies_agnostic[node_count].append(agnostic_topology_db['topology_score'])
+                    best_topologies_aware[node_count].append(agnostic_topology_db['topology_score'])
 
+                ax = plt.subplot(11)
+                ax.bar(best_topologies_agnostic[10], width=0.2, color='b', align='center')
+                ax.bar(best_topologies_aware[10], width=0.2, color='g', align='center')
+                plt.savefig(f'N10_samereq_comp.png', dpi=800)
 
+                ax = plt.subplot(2)
+                ax.bar(best_topologies_agnostic[30], width=0.2, color='b', align='center')
+                ax.bar(best_topologies_aware[30], width=0.2, color='g', align='center')
+                plt.savefig(f'N30_samereq_comp.png', dpi=800)
 
 
 
