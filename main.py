@@ -61,6 +61,7 @@ if __name__ == '__main__':
         node_range = [i for i in range(10,41,5)]
         link_range = [(node_count*1.2,node_count*1.3) for node_count in node_range]
 
+
         for node_count,link_interval in zip(node_range,link_range):
             i = 0
             while(i < topology_per_node_count):
@@ -131,6 +132,7 @@ if __name__ == '__main__':
         if(args.compare):
             best_topologies_aware = {10: [],30:[]}
             best_topologies_agnostic = {10: [],30:[]}
+            best_topologies = {10: [],30:[]}
 
 
 
@@ -150,18 +152,16 @@ if __name__ == '__main__':
                     aware_topology_db['topology_score'] = network.evaluate_topology(aware_topology_db,topology_filename)
                     print(f"score after {aware_topology_db['topology_score']}")
 
-                    best_topologies_agnostic[node_count].append(agnostic_topology_db['topology_score'])
-                    best_topologies_aware[node_count].append(agnostic_topology_db['topology_score'])
+                    agnostic_topology_db.pop('topology_data',None)
+                    aware_topology_db.pop('topology_data', None)
+                    best_topologies[node_count].append(agnostic_topology_db)
+                    best_topologies[node_count].append(aware_topology_db)
 
-            ax = plt.subplot(111)
-            ax.bar(best_topologies_agnostic[10], width=0.2, color='b', align='center')
-            ax.bar(best_topologies_aware[10], width=0.2, color='g', align='center')
-            plt.savefig(f'N10_samereq_comp.png', dpi=800)
 
-            ax = plt.subplot(112)
-            ax.bar(best_topologies_agnostic[30], width=0.2, color='b', align='center')
-            ax.bar(best_topologies_aware[30], width=0.2, color='g', align='center')
-            plt.savefig(f'N30_samereq_comp.png', dpi=800)
+            df10 = pd.DataFrame(best_topologies[10],columns=best_topologies[10][0].keys())
+            df30 = pd.DataFrame(best_topologies[10], columns=best_topologies[10][0].keys())
+            df10.to_csv('n10_samereq.csv', sep=';', decimal=',', index=False,mode='w')
+            df30.to_csv('n30_samereq.csv', sep=';', decimal=',', index=False, mode='w')
 
 
 
