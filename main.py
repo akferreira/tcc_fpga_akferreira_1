@@ -133,16 +133,18 @@ if __name__ == '__main__':
 
             for node_count in node_counts:
                 for topology_id in range(TOPOLOGY_COUNT):
-                    print(f"{topology_id=}")
                     topology_filename = f"topology_N{node_count}_{topology_id}.json"
                     search_params = {'agnostic': True,'population': agnostic_params_best['popsize'],'elitep': agnostic_params_best['elitep'],'resize_rate': agnostic_params_best['resize'],'topology_id': topology_filename}
-                    print(search_params)
                     agnostic_topology_db = (list(topology_log.find(search_params).limit(1)))[0]
-
-                    print(agnostic_topology_db['topology_data'])
-
+                    print(f"score before {agnostic_topology_db['topology_score']}")
                     agnostic_topology_db['topology_score'] = network.evaluate_topology(agnostic_topology_db,topology_filename)
-                    print(agnostic_topology_db['topology_score'])
+                    print(f"score after {agnostic_topology_db['topology_score']}")
+
+                    search_params = {'agnostic': {'$exists': False},'population': aware_params_best['popsize'],'elitep': aware_params_best['elitep'],'resize_rate': aware_params_best['resize'],'topology_id': topology_filename}
+                    aware_topology_db = (list(topology_log.find(search_params).limit(1)))[0]
+                    print(f"score before {aware_topology_db['topology_score']}")
+                    agnostic_topology_db['topology_score'] = network.evaluate_topology(aware_topology_db,topology_filename)
+                    print(f"score after {aware_topology_db['topology_score']}")
 
 
 
